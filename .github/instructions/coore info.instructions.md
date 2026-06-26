@@ -31,14 +31,12 @@ Before making code changes or generating new documentation:
 5. Preserve existing document structure and expand it instead of replacing it whenever practical.
 6. Maintain cross-references between all documentation.
 7. When creating a new document:
-
    * Add references to related documents.
    * Update any documentation indexes if present.
    * Reference the prompt used to generate the document.
 8. If code changes modify architecture, interfaces, configuration, threading, networking, data flow, diagnostics, or runtime behavior, update all affected documentation before considering the task complete.
 9. Never leave documentation in a partially updated state.
 10. When finished, provide a summary listing:
-
     * Code files modified
     * Documentation updated
     * New documentation created
