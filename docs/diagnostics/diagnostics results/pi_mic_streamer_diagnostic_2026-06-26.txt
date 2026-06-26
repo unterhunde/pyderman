@@ -1,0 +1,79 @@
+Pi Microphone Streamer Diagnostic Report
+Timestamp: 2026-06-26
+
+Scope
+- Pi audio startup failure: OSError: [Errno -9999] Unanticipated host error in pa.open()
+- Focused on Pi audio discovery and mic streamer behavior.
+
+1) Selected input device
+- Device index: 0
+- Device name: snd_rpi_googlevoicehat_soundcar: Google voiceHAT SoundCard HiFi voicehat-hifi-0 (hw:0,0)
+- Conclusion: this is the working INMP/I2S capture path on this Pi.
+
+2) Exact config change applied
+- File: /home/jorg/pibot/pi/audio/config.py
+- Change:
+  - Before: INPUT_DEVICE_INDEX = None
+  - After:  INPUT_DEVICE_INDEX = 0  # hw:0,0 Google voiceHAT SoundCard HiFi
+
+3) Required diagnostics command run
+Command:
+  cd /home/jorg/pibot
+  source /home/jorg/venv/bin/activate
+  python -m pi.audio_diagnostics
+
+Key output:
+  Device: snd_rpi_googlevoicehat_soundcar: Google voiceHAT SoundCard HiFi voicehat-hifi-0 (hw:0,0)
+  Index: 0
+  Max Input Channels: 2
+  Sample Rate: 48000 Hz
+  DIAGNOSTICS:
+    ✓ Microphone signal looks GOOD
+
+4) PyAudio input devices and open results
+Probe header:
+  idx | name | max_in | default_rate | supports_rates | open_result(paInt32,2ch-or-max)
+
+Probe results:
+  0  | snd_rpi_googlevoicehat_soundcar: Google voiceHAT SoundCard HiFi voicehat-hifi-0 (hw:0,0) | 2   | 48000 | 48000                               | SUCCESS
+  1  | sysdefault                                                                                 | 128 | 48000 | 8000,16000,32000,44100,48000       | SUCCESS
+  2  | lavrate                                                                                    | 128 | 44100 | 8000,16000,32000,44100,48000       | SUCCESS
+  3  | samplerate                                                                                 | 128 | 44100 | 8000,16000,32000,44100,48000       | SUCCESS
+  4  | speexrate                                                                                  | 128 | 44100 | 8000,16000,32000,44100,48000       | SUCCESS
+  5  | pulse                                                                                      | 32  | 44100 | 8000,16000,32000,44100,48000       | SUCCESS
+  6  | speex                                                                                      | 1   | 48000 | 48000                               | SUCCESS
+  7  | upmix                                                                                      | 8   | 48000 | 16000,32000,44100,48000            | SUCCESS
+  8  | vdownmix                                                                                   | 6   | 48000 | 8000,16000,32000,44100,48000       | SUCCESS
+  9  | tts_softvol                                                                                | 128 | 48000 | 8000,16000,32000,44100,48000       | SUCCESS
+  10 | tts_hw_plug                                                                                | 128 | 48000 | 8000,16000,32000,44100,48000       | SUCCESS
+  12 | default                                                                                    | 32  | 44100 | 8000,16000,32000,44100,48000       | SUCCESS
+
+5) Manual mic streamer runtime test (>=10s)
+Command:
+  timeout 12 python -m pi.mic_udp_streamer
+
+Key output:
+  Starting mic UDP stream: device=0 (...) rate=48000 input_channels=2 ... dest=192.168.0.189:5001
+  Received signal SIGTERM, initiating graceful shutdown
+  Shutdown requested, exiting main loop
+  STREAMER_TIMEOUT_EXIT:124
+
+Interpretation:
+- Exit code 124 is from timeout after 12 seconds, so the streamer remained alive during the test window.
+
+6) UDP packet delivery verification to PC:5001
+Listener + streamer coordinated test result:
+  UDP_FIRST_PACKET from=('192.168.0.38', 50114) len=2054
+  UDP_PACKET_COUNT=515
+
+Interpretation:
+- UDP audio packets are reaching the PC on port 5001 successfully.
+
+7) Current status
+- Mic streamer now stays alive: YES (verified for 12s runtime window).
+- Audio packets reaching PC: YES (515 packets observed in test window).
+
+8) Remaining blockers
+- No hard blockers for mic streaming.
+- Non-fatal ALSA/JACK warnings still print at startup (known noisy environment logs).
+- One transient run previously reported device 0 with 0 input channels, but subsequent probes/open tests passed and streaming succeeded.
