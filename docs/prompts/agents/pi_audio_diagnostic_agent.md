@@ -33,4 +33,4 @@ Tasks:
    - test command output
    - whether the mic streamer now stays alive
    - remaining blockers
-9. Record you results into a file in /docs/diagnostics/diagnostics results/
+9. Record your actions, rationale, and results into a file in /docs/diagnostics/diagnostics results/
