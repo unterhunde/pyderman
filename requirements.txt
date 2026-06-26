@@ -1,0 +1,14 @@
+# PiBot Requirements
+# PC-side dependencies
+numpy>=1.23.0
+scipy>=1.9.0
+opencv-python>=4.7.0
+openai-whisper>=20240314
+torch>=2.0.0
+ultralytics>=8.0.0
+requests>=2.31.0
+Pillow>=10.0.0
+pyaudio>=0.2.13
+
+# Raspberry Pi dependencies
+# (Same as above, plus Pi-specific packages if needed)

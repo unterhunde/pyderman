@@ -1,0 +1,77 @@
+What we did this session
+Inspected full audio pipeline
+
+Pi capture/transmit: pi/mic_udp_streamer.py
+PC receive/transcribe: pc/client.py
+Confirmed I2S/ALSA device and UDP streaming path.
+Ran iterative calibration with measurements
+
+For each round we collected:
+RMS, peak, noise floor, SNR, clipping %
+UDP packet loss/jitter indicators
+Test types: silence, quiet, normal, loud speech at ~2 ft.
+Verified channel behavior
+
+Raw stereo diagnostic showed strong lane imbalance.
+We tested fixed channel modes and later switched to AUTO selection.
+Tuned Whisper/speech detection interactively
+
+Added minimum voiced start-time gating.
+Tuned no-speech filtering.
+Removed an over-aggressive secondary no-speech rejection step.
+Iterated until speech capture became reliable without needing exaggerated first-word onset.
+Kept a calibration log
+
+/home/jorg/.copilot/session-state/bb7352cf-3ff8-4271-b6b1-bdc304d16998/files/calibration_log.txt
+Final state of changed variables (current)
+pi/mic_udp_streamer.py
+CHANNEL_MODE = "auto" ✅
+TARGET_RMS = 0.080
+MAX_GAIN = 28.0
+NOISE_GATE_RMS = 0.003
+AGC_ATTACK = 0.35
+AGC_RELEASE = 0.05
+pc/client.py
+min_start_voiced_seconds = 0.12 ✅
+Whisper no_speech_threshold = 0.52 ✅
+Secondary post-transcribe avg no-speech rejection block removed ✅
+Practical outcome
+Final user feedback: “perfect”
+Speech now captures properly at ~2 ft, with improved onset behavior and stable detection after iterative tuning.
+If you want, next I can produce a short “known-good config block” you can paste into a README or ops note.
+
+Pi mic streamer (/home/jorg/pibot/pi/mic_udp_streamer.py)
+PC_HOST = "192.168.0.189"
+PC_PORT = 5001
+SAMPLE_RATE = 48000
+INPUT_CHANNELS = 2
+OUTPUT_CHANNELS = 1
+FORMAT = pyaudio.paInt32
+CHUNK_FRAMES = 1024
+INPUT_DEVICE_INDEX = None
+
+CHANNEL_MODE = "right"   # current file state
+NOISE_GATE_RMS = 0.003
+TARGET_RMS = 0.080
+MIN_GAIN = 1.0
+MAX_GAIN = 28.0
+AGC_ATTACK = 0.35
+AGC_RELEASE = 0.05
+
+PC Whisper client (/home/jorg/pibot/pc/client.py)
+# WhisperWorker.run()
+min_start_voiced_seconds = 0.12
+release_hysteresis = 0.80
+
+# WhisperWorker._transcribe()
+result = self.model.transcribe(
+    audio,
+    language="en",
+    fp16=False,
+    verbose=False,
+    temperature=0.0,
+    condition_on_previous_text=False,
+    no_speech_threshold=0.52,
+    logprob_threshold=-1.0,
+    compression_ratio_threshold=2.4,
+)

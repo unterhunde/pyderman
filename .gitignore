@@ -1,0 +1,19 @@
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+
+# Python virtual environments
+venv/
+.venv/
+
+# Tool caches
+.pytest_cache/
+.mypy_cache/
+
+# Local environment configuration
+pibot.env
+.env
+
+# Oversized archived model artifacts (exceed GitHub file limit)
+archives/models/yolo11x.pt
+archives/models/yolo26x.pt

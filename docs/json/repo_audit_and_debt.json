@@ -1,0 +1,83 @@
+{
+  "documentation_header": {
+    "title": "Repository Audit & Technical Debt Report — PiBot (Machine Readable)",
+    "purpose": "Provide a structured technical debt inventory and remediation actions for PiBot.",
+    "last_updated": "2026-06-26",
+    "source_prompt": "User request: \"update all files in /docs/ to be compliant with the attached file\"",
+    "source_documents_used": [
+      "docs/json/prompt_header.json",
+      "docs/Prompt_Header.md",
+      "docs/json/system_manifest.json"
+    ],
+    "source_implementation_analyzed": [
+      "docs/"
+    ],
+    "related_documents": [
+      "docs/Repo_Audit_and_Debt.md",
+      "docs/json/system_manifest.json",
+      "docs/json/prompt_header.json",
+      "docs/Prompt_Header.md"
+    ],
+    "assumptions": [
+      "Compliance is satisfied by including required Prompt Header fields in this JSON document metadata."
+    ],
+    "revision_history": [
+      {
+        "date": "2026-06-26",
+        "change": "Added Prompt Header compliance metadata object."
+      }
+    ]
+  },
+  "audit_meta": {
+    "target_repository": "PiBot",
+    "timestamp": "2026-06-26",
+    "manifest_version_referenced": "1.0"
+  },
+  "technical_debt_items": [
+    {
+      "id": "DEBT-001",
+      "component": "pc/services/thread_monitor.py",
+      "category": "Dead Code / Wiring Gap",
+      "severity": "High",
+      "description": "Thread monitor utility exists in manifest but is entirely unwired from OperatorConsoleApp and never instantiated in active PC runtime.",
+      "remediation_action": "Integrate as a persistent background worker monitor in OperatorConsoleApp; register audio/whisper/ollama/video workers with restart callbacks; start on connect and stop on disconnect.",
+      "estimated_effort_hours": 5
+    },
+    {
+      "id": "DEBT-002",
+      "component": "archives/pc/",
+      "category": "Legacy Code",
+      "severity": "Low",
+      "description": "Stale archived files and typo compatibility shims (e.g., mic_udp_reciever.py, video_udp_reciever.py) remain listed in manifest module scope, increasing maintenance noise.",
+      "remediation_action": "Deprecate and de-scope archived shims from active manifest inventory; move to explicit legacy namespace or remove if no historical retention requirement.",
+      "estimated_effort_hours": 3
+    },
+    {
+      "id": "DEBT-003",
+      "component": "pc/services/pi_streamer_manager.py",
+      "category": "Infrastructure / Process Supervision",
+      "severity": "Medium",
+      "description": "Remote streamer control relies on SSH shell commands, PID files, and kill -0 probing, which is fragile under stale PID or partial-failure scenarios.",
+      "remediation_action": "Migrate Pi streamers to managed service units (e.g., systemd) and query authoritative unit health/state instead of raw PID-file checks.",
+      "estimated_effort_hours": 10
+    },
+    {
+      "id": "DEBT-004",
+      "component": "telemetry",
+      "category": "Instrumentation Deficiency",
+      "severity": "Medium",
+      "description": "Operational telemetry is predominantly passive recency-based; lacks active latency/jitter tracking, Pi host telemetry, and first-class surfaced error counters.",
+      "remediation_action": "Implement heartbeat-aging and latency metrics, add Pi CPU/memory polling over SSH, and expose decode/queue/SSH error counters in GUI status surfaces.",
+      "estimated_effort_hours": 8
+    },
+    {
+      "id": "DEBT-005",
+      "component": "pc/operator_console_app.py",
+      "category": "Telemetry Wiring Gap",
+      "severity": "High",
+      "description": "Application-level heartbeat state variable exists but is not updated from receiver heartbeat events, reducing network-online signal fidelity.",
+      "remediation_action": "Propagate heartbeat timestamps from UDPVideoReceiver to OperatorConsoleApp and use them as primary network liveness input with explicit stale thresholds.",
+      "estimated_effort_hours": 4
+    }
+  ]
+}

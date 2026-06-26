@@ -1,0 +1,26 @@
+%% Title: Video Pipeline Flow Diagram
+%% Purpose: Describe end-to-end Pi camera packet flow through PC receive, rendering, and inference.
+%% Last Updated: 2026-06-26
+%% Source Prompt: User request: "update all files in /docs/ to be compliant with the attached file"
+%% Source Documents Used: docs/json/prompt_header.json, docs/Prompt_Header.md, docs/json/system_manifest.json
+%% Source Implementation Analyzed: docs/
+%% Related Documents: docs/System_Diagnostic_and_Troubleshooting_Guide.md, docs/diagnostics/streamer_control_lifecycle.mmd, docs/diagnostics/whisper_pipeline_flow.mmd
+%% Assumptions: Compliance is satisfied by including required Prompt Header fields in Mermaid comments.
+%% Revision History:
+%% - 2026-06-26: Added Prompt Header compliance metadata.
+
+flowchart TD
+    A[Pi Camera / Synthetic Source] --> B[pi/video/streamer.py]
+    B --> C[JPEG encode]
+    C --> D[Chunk packets + heartbeat\nUDP 5000]
+    D --> E[UDPVideoReceiver socket poll]
+    E --> F[FrameBuffer reassembly]
+    F --> G[render_queue]
+    G --> H[Render worker]
+    H --> I{Inference enabled?}
+    I -->|yes| J[InferenceEngine + YOLO.track]
+    I -->|no| K[Decode/display only]
+    J --> L[ui_queue frame event]
+    K --> L
+    L --> M[Tk label update]
+    M --> N[GUI stats callback\nfps/frame/detections]

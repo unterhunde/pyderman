@@ -1,0 +1,1670 @@
+{
+  "documentation_header": {
+    "title": "PiBot System Manifest",
+    "purpose": "Serve as the implementation index and machine-readable system documentation source of truth.",
+    "last_updated": "2026-06-26",
+    "source_prompt": "User request: \"update all files in /docs/ to be compliant with the attached file\"",
+    "source_documents_used": [
+      "docs/json/prompt_header.json",
+      "docs/Prompt_Header.md"
+    ],
+    "source_implementation_analyzed": [
+      "docs/",
+      "pc/",
+      "pi/",
+      "archives/",
+      "tests/"
+    ],
+    "related_documents": [
+      "docs/System_Architecture_and_Interface_Control_Document.md",
+      "docs/System_Diagnostic_and_Troubleshooting_Guide.md",
+      "docs/Repo_Audit_and_Debt.md",
+      "docs/json/prompt_header.json",
+      "docs/Prompt_Header.md"
+    ],
+    "assumptions": [
+      "Compliance is satisfied by including required Prompt Header fields in this JSON document metadata."
+    ],
+    "revision_history": [
+      {
+        "date": "2026-06-26",
+        "change": "Added Prompt Header compliance metadata object."
+      }
+    ]
+  },
+  "repository": {
+    "root": "/home/jorg/pibot",
+    "current_scope": [
+      "pc",
+      "pi",
+      "archives",
+      "tests",
+      "pibot_config.py",
+      "requirements.txt",
+      "pibot.env"
+    ],
+    "excluded_from_runtime_docs": [
+      "venv",
+      ".git",
+      "__pycache__"
+    ],
+    "notes": [
+      "docs generated from implementation state on 2026-06-26",
+      "secrets in repo config files are intentionally not recorded"
+    ]
+  },
+  "modules": [
+    {
+      "path": "pibot_config.py",
+      "package": "root",
+      "purpose": "Centralized runtime configuration loader",
+      "public_classes": [
+        {
+          "name": "AppSettings",
+          "methods": []
+        }
+      ],
+      "public_functions": [
+        "load_settings"
+      ],
+      "imports": [
+        "os",
+        "pathlib.Path"
+      ],
+      "called_by": [
+        "pc/client.py",
+        "pc/video/receiver_widget.py",
+        "pi/mic_udp_streamer.py",
+        "pi/video_udp_streamer.py",
+        "archives/pc/mic_udp_receiver.py",
+        "archives/pc/video_udp_receiver.py"
+      ],
+      "calls_into": [
+        "os.environ",
+        "Path.read_text"
+      ],
+      "config_keys": [
+        "PIBOT_CONFIG_FILE",
+        "PIBOT_UDP_BIND_HOST",
+        "PIBOT_PC_HOST",
+        "PIBOT_UDP_AUDIO_PORT",
+        "PIBOT_UDP_VIDEO_PORT",
+        "PIBOT_WHISPER_SAMPLE_RATE",
+        "PIBOT_PI_SAMPLE_RATE",
+        "PIBOT_YOLO_MODEL_PATH",
+        "PIBOT_OLLAMA_URL",
+        "PIBOT_OLLAMA_MODEL",
+        "PIBOT_PI_HOST",
+        "PIBOT_PI_USER",
+        "PIBOT_PI_VENV_PATH",
+        "PIBOT_PI_PROJECT_PATH"
+      ],
+      "runtime_responsibilities": [
+        "merge env vars and env-file values",
+        "normalize YOLO model path to absolute path",
+        "supply AppSettings to both runtimes"
+      ]
+    },
+    {
+      "path": "pc/client.py",
+      "package": "pc",
+      "purpose": "PC composition root and Tk main loop launcher",
+      "public_classes": [],
+      "public_functions": [
+        "create_application",
+        "main"
+      ],
+      "imports": [
+        "tkinter",
+        "pibot_config.load_settings",
+        "pc.operator_console_app.OperatorConsoleApp"
+      ],
+      "called_by": [
+        "user launch"
+      ],
+      "calls_into": [
+        "load_settings",
+        "OperatorConsoleApp",
+        "Tk.mainloop"
+      ],
+      "config_keys": [],
+      "runtime_responsibilities": [
+        "bootstrap GUI",
+        "append project root to sys.path"
+      ]
+    },
+    {
+      "path": "pc/runtime_config.py",
+      "package": "pc",
+      "purpose": "Thread-safe runtime toggles",
+      "public_classes": [
+        {
+          "name": "RuntimeConfig",
+          "methods": [
+            "set_threshold",
+            "get_threshold",
+            "set_silence_timeout",
+            "get_silence_timeout",
+            "set_audio_enabled",
+            "is_audio_enabled",
+            "set_listening_enabled",
+            "is_listening_enabled"
+          ]
+        }
+      ],
+      "public_functions": [],
+      "imports": [
+        "threading"
+      ],
+      "called_by": [
+        "pc/operator_console_app.py",
+        "pc/services/audio_receiver.py",
+        "pc/services/whisper_service.py"
+      ],
+      "calls_into": [
+        "threading.Lock"
+      ],
+      "config_keys": [],
+      "runtime_responsibilities": [
+        "hold live threshold and enable flags"
+      ]
+    },
+    {
+      "path": "pc/logging_utils.py",
+      "package": "pc",
+      "purpose": "GUI log handler",
+      "public_classes": [
+        {
+          "name": "GuiLogHandler",
+          "methods": [
+            "emit"
+          ]
+        }
+      ],
+      "public_functions": [],
+      "imports": [
+        "logging",
+        "queue"
+      ],
+      "called_by": [
+        "pc/operator_console_app.py"
+      ],
+      "calls_into": [
+        "queue.Queue.put_nowait"
+      ],
+      "config_keys": [],
+      "runtime_responsibilities": [
+        "bridge logging to GUI queue"
+      ]
+    },
+    {
+      "path": "pc/operator_console_app.py",
+      "package": "pc",
+      "purpose": "Tkinter operator console and orchestration",
+      "public_classes": [
+        {
+          "name": "OperatorConsoleApp",
+          "methods": [
+            "run_startup_checks",
+            "toggle_connection",
+            "connect",
+            "disconnect",
+            "update_audio_meter",
+            "set_partial_transcript",
+            "append_final_transcript",
+            "set_transcript_status",
+            "reset_ai_output",
+            "append_ai_output",
+            "toggle_audio_stream",
+            "start_listening",
+            "stop_listening",
+            "start_inference",
+            "stop_inference",
+            "start_mic_streamer",
+            "stop_mic_streamer",
+            "start_video_streamer",
+            "stop_video_streamer",
+            "refresh_streamer_status",
+            "on_close"
+          ]
+        }
+      ],
+      "public_functions": [],
+      "imports": [
+        "tkinter",
+        "pc.logging_utils.GuiLogHandler",
+        "pc.runtime_config.RuntimeConfig",
+        "pc.services.audio_receiver.AudioReceiverService",
+        "pc.services.ollama_service.OllamaService",
+        "pc.services.pi_streamer_manager.PiStreamerManager",
+        "pc.services.prompt_submission.PromptSubmission",
+        "pc.services.startup_checks.StartupChecks",
+        "pc.services.whisper_service.WhisperService",
+        "pc.video.receiver_widget.UDPVideoReceiver"
+      ],
+      "called_by": [
+        "pc/client.py"
+      ],
+      "calls_into": [
+        "RuntimeConfig",
+        "StartupChecks",
+        "PiStreamerManager",
+        "AudioReceiverService",
+        "WhisperService",
+        "OllamaService",
+        "UDPVideoReceiver",
+        "Tk.after"
+      ],
+      "config_keys": [
+        "settings.ollama_url",
+        "settings.ollama_model",
+        "settings.udp_bind_host",
+        "settings.udp_audio_port",
+        "settings.udp_video_port",
+        "settings.yolo_model_path",
+        "settings.whisper_sample_rate"
+      ],
+      "runtime_responsibilities": [
+        "build GUI",
+        "own queues",
+        "start/stop worker threads",
+        "display liveness/status",
+        "route callbacks to UI"
+      ]
+    },
+    {
+      "path": "pc/services/audio_receiver.py",
+      "package": "pc.services",
+      "purpose": "UDP audio ingestion into Whisper queue",
+      "public_classes": [
+        {
+          "name": "AudioReceiverService",
+          "methods": [
+            "run",
+            "close_socket"
+          ]
+        }
+      ],
+      "public_functions": [],
+      "imports": [
+        "numpy",
+        "scipy.signal.resample_poly",
+        "socket",
+        "queue",
+        "threading",
+        "time",
+        "pc.runtime_config.RuntimeConfig"
+      ],
+      "called_by": [
+        "pc/operator_console_app.py"
+      ],
+      "calls_into": [
+        "socket.bind",
+        "socket.recvfrom",
+        "resample_poly",
+        "RuntimeConfig.is_audio_enabled"
+      ],
+      "config_keys": [
+        "settings.udp_bind_host",
+        "settings.udp_audio_port"
+      ],
+      "runtime_responsibilities": [
+        "receive UDP PCM",
+        "compute RMS",
+        "downsample 48k to 16k",
+        "drop oldest chunk on queue full"
+      ]
+    },
+    {
+      "path": "pc/services/whisper_service.py",
+      "package": "pc.services",
+      "purpose": "Speech segmentation and Whisper transcription",
+      "public_classes": [
+        {
+          "name": "WhisperService",
+          "methods": [
+            "run"
+          ]
+        }
+      ],
+      "public_functions": [],
+      "imports": [
+        "whisper",
+        "numpy",
+        "queue",
+        "threading",
+        "time",
+        "collections.deque",
+        "pc.services.prompt_submission.PromptSubmission"
+      ],
+      "called_by": [
+        "pc/operator_console_app.py"
+      ],
+      "calls_into": [
+        "whisper.load_model('base')",
+        "model.transcribe",
+        "ollama_queue.put_nowait"
+      ],
+      "config_keys": [
+        "RuntimeConfig.threshold",
+        "RuntimeConfig.silence_timeout",
+        "RuntimeConfig.listening_enabled",
+        "settings.whisper_sample_rate"
+      ],
+      "runtime_responsibilities": [
+        "detect speech phrases",
+        "emit partial/final transcripts",
+        "queue prompt submissions"
+      ]
+    },
+    {
+      "path": "pc/services/ollama_service.py",
+      "package": "pc.services",
+      "purpose": "Streamed Ollama response worker",
+      "public_classes": [
+        {
+          "name": "OllamaService",
+          "methods": [
+            "run"
+          ]
+        }
+      ],
+      "public_functions": [],
+      "imports": [
+        "requests",
+        "json",
+        "queue",
+        "threading",
+        "pc.services.prompt_submission.PromptSubmission"
+      ],
+      "called_by": [
+        "pc/operator_console_app.py"
+      ],
+      "calls_into": [
+        "requests.post",
+        "response.iter_lines"
+      ],
+      "config_keys": [
+        "settings.ollama_url",
+        "settings.ollama_model"
+      ],
+      "runtime_responsibilities": [
+        "stream LLM tokens into GUI",
+        "reset assistant output per prompt"
+      ]
+    },
+    {
+      "path": "pc/services/pi_streamer_manager.py",
+      "package": "pc.services",
+      "purpose": "SSH control of Pi streamer processes",
+      "public_classes": [
+        {
+          "name": "PiStreamerManager",
+          "methods": [
+            "query_status",
+            "run_action"
+          ]
+        }
+      ],
+      "public_functions": [],
+      "imports": [
+        "shlex",
+        "subprocess",
+        "threading",
+        "time"
+      ],
+      "called_by": [
+        "pc/operator_console_app.py"
+      ],
+      "calls_into": [
+        "ssh command execution",
+        "remote shell commands",
+        "PID-file inspection"
+      ],
+      "config_keys": [
+        "settings.pi_host",
+        "settings.pi_user",
+        "settings.pi_venv_path",
+        "settings.pi_project_path"
+      ],
+      "runtime_responsibilities": [
+        "start/stop/query Pi microphone and video streamer scripts over SSH"
+      ]
+    },
+    {
+      "path": "pc/services/startup_checks.py",
+      "package": "pc.services",
+      "purpose": "Startup readiness checks",
+      "public_classes": [
+        {
+          "name": "StartupChecks",
+          "methods": [
+            "run_all",
+            "check_model",
+            "check_udp_binds",
+            "check_ollama",
+            "check_stream_target_alignment",
+            "ollama_base_url"
+          ]
+        }
+      ],
+      "public_functions": [],
+      "imports": [
+        "socket",
+        "requests",
+        "pathlib.Path",
+        "urllib.parse.urlparse"
+      ],
+      "called_by": [
+        "pc/operator_console_app.py"
+      ],
+      "calls_into": [
+        "socket.bind",
+        "socket.gethostbyname_ex",
+        "requests.get"
+      ],
+      "config_keys": [
+        "settings.yolo_model_path",
+        "settings.udp_bind_host",
+        "settings.udp_audio_port",
+        "settings.udp_video_port",
+        "settings.pc_host",
+        "settings.ollama_url"
+      ],
+      "runtime_responsibilities": [
+        "verify model file",
+        "verify UDP binds",
+        "verify Ollama reachability",
+        "verify PC host alignment"
+      ]
+    },
+    {
+      "path": "pc/services/thread_monitor.py",
+      "package": "pc.services",
+      "purpose": "Thread watchdog and restart helper",
+      "public_classes": [
+        {
+          "name": "ThreadMonitor",
+          "methods": [
+            "register_thread",
+            "start",
+            "stop",
+            "get_status"
+          ]
+        }
+      ],
+      "public_functions": [],
+      "imports": [
+        "logging",
+        "threading",
+        "time",
+        "typing.Callable"
+      ],
+      "called_by": [],
+      "calls_into": [
+        "threading.Thread",
+        "restart callbacks"
+      ],
+      "config_keys": [],
+      "runtime_responsibilities": [
+        "monitor dead threads and optionally restart them"
+      ],
+      "notes": [
+        "implemented but not wired into OperatorConsoleApp"
+      ]
+    },
+    {
+      "path": "pc/services/prompt_submission.py",
+      "package": "pc.services",
+      "purpose": "Prompt envelope for speech to LLM pipeline",
+      "public_classes": [
+        {
+          "name": "PromptSubmission",
+          "methods": []
+        }
+      ],
+      "public_functions": [],
+      "imports": [
+        "dataclasses.dataclass"
+      ],
+      "called_by": [
+        "pc/services/whisper_service.py",
+        "pc/services/ollama_service.py"
+      ],
+      "calls_into": [],
+      "config_keys": [],
+      "runtime_responsibilities": [
+        "carry phrase_id and transcript text"
+      ]
+    },
+    {
+      "path": "pc/video/frame_buffer.py",
+      "package": "pc.video",
+      "purpose": "Chunk assembly for video frames",
+      "public_classes": [
+        {
+          "name": "FrameBuffer",
+          "methods": [
+            "add_chunk",
+            "is_complete",
+            "assemble"
+          ]
+        }
+      ],
+      "public_functions": [],
+      "imports": [
+        "dataclasses.dataclass",
+        "dataclasses.field"
+      ],
+      "called_by": [
+        "pc/video/receiver_widget.py"
+      ],
+      "calls_into": [],
+      "config_keys": [],
+      "runtime_responsibilities": [
+        "store and assemble JPEG chunks"
+      ]
+    },
+    {
+      "path": "pc/video/inference_engine.py",
+      "package": "pc.video",
+      "purpose": "Decode JPEG and run YOLO inference",
+      "public_classes": [
+        {
+          "name": "InferenceEngine",
+          "methods": [
+            "load_model",
+            "process"
+          ]
+        }
+      ],
+      "public_functions": [],
+      "imports": [
+        "cv2",
+        "numpy",
+        "ultralytics.YOLO"
+      ],
+      "called_by": [
+        "pc/video/receiver_widget.py"
+      ],
+      "calls_into": [
+        "YOLO.track",
+        "cv2.imdecode",
+        "cv2.cvtColor"
+      ],
+      "config_keys": [
+        "settings.yolo_model_path"
+      ],
+      "runtime_responsibilities": [
+        "load model lazily",
+        "return RGB frame plus detection count and inference time"
+      ]
+    },
+    {
+      "path": "pc/video/protocol.py",
+      "package": "pc.video",
+      "purpose": "Video packet constants",
+      "public_classes": [],
+      "public_functions": [],
+      "imports": [
+        "struct"
+      ],
+      "called_by": [
+        "pc/video/receiver_widget.py"
+      ],
+      "calls_into": [],
+      "config_keys": [],
+      "runtime_responsibilities": [
+        "define chunk and heartbeat packet layout"
+      ]
+    },
+    {
+      "path": "pc/video/receiver_widget.py",
+      "package": "pc.video",
+      "purpose": "Tk video receiver widget",
+      "public_classes": [
+        {
+          "name": "UDPVideoReceiver",
+          "methods": [
+            "start",
+            "stop",
+            "destroy",
+            "set_inference_enabled"
+          ]
+        }
+      ],
+      "public_functions": [],
+      "imports": [
+        "tkinter",
+        "socket",
+        "threading",
+        "queue",
+        "PIL.Image",
+        "PIL.ImageTk",
+        "pc.video.frame_buffer.FrameBuffer",
+        "pc.video.inference_engine.InferenceEngine",
+        "pc.video.protocol"
+      ],
+      "called_by": [
+        "pc/operator_console_app.py"
+      ],
+      "calls_into": [
+        "FrameBuffer",
+        "InferenceEngine",
+        "Tk.after",
+        "socket.recvfrom"
+      ],
+      "config_keys": [
+        "settings.udp_bind_host",
+        "settings.udp_video_port",
+        "settings.yolo_model_path"
+      ],
+      "runtime_responsibilities": [
+        "bind video socket",
+        "reassemble chunks",
+        "track heartbeat",
+        "render frames",
+        "emit stats"
+      ]
+    },
+    {
+      "path": "pi/mic_udp_streamer.py",
+      "package": "pi",
+      "purpose": "Pi microphone streamer entrypoint",
+      "public_classes": [],
+      "public_functions": [
+        "main"
+      ],
+      "imports": [
+        "pibot_config.load_settings",
+        "pi.audio.streamer.UDPMicStreamer"
+      ],
+      "called_by": [
+        "user launch",
+        "pc/services/pi_streamer_manager.py"
+      ],
+      "calls_into": [
+        "load_settings",
+        "UDPMicStreamer"
+      ],
+      "config_keys": [
+        "settings.pi_project_path",
+        "settings.pc_host",
+        "settings.udp_audio_port",
+        "settings.pi_sample_rate"
+      ],
+      "runtime_responsibilities": [
+        "write PID file",
+        "launch mic streamer"
+      ]
+    },
+    {
+      "path": "pi/video_udp_streamer.py",
+      "package": "pi",
+      "purpose": "Pi video streamer entrypoint",
+      "public_classes": [],
+      "public_functions": [
+        "main"
+      ],
+      "imports": [
+        "pibot_config.load_settings",
+        "pi.video.streamer.UDPVideoStreamer"
+      ],
+      "called_by": [
+        "user launch",
+        "pc/services/pi_streamer_manager.py"
+      ],
+      "calls_into": [
+        "load_settings",
+        "UDPVideoStreamer"
+      ],
+      "config_keys": [
+        "settings.pi_project_path",
+        "settings.pc_host",
+        "settings.udp_video_port"
+      ],
+      "runtime_responsibilities": [
+        "write PID file",
+        "launch video streamer"
+      ]
+    },
+    {
+      "path": "pi/audio/config.py",
+      "package": "pi.audio",
+      "purpose": "Audio streamer constants",
+      "public_classes": [],
+      "public_functions": [],
+      "imports": [
+        "pyaudio"
+      ],
+      "called_by": [
+        "pi/audio/streamer.py",
+        "pi/audio_diagnostics.py"
+      ],
+      "calls_into": [],
+      "config_keys": [],
+      "runtime_responsibilities": [
+        "store mic channel, gain, and chunk defaults"
+      ]
+    },
+    {
+      "path": "pi/audio/device_selection.py",
+      "package": "pi.audio",
+      "purpose": "Input device discovery",
+      "public_classes": [],
+      "public_functions": [
+        "select_input_device"
+      ],
+      "imports": [
+        "pyaudio"
+      ],
+      "called_by": [
+        "pi/audio/streamer.py",
+        "pi/audio_diagnostics.py"
+      ],
+      "calls_into": [
+        "PyAudio device enumeration"
+      ],
+      "config_keys": [],
+      "runtime_responsibilities": [
+        "choose preferred or default capture device"
+      ]
+    },
+    {
+      "path": "pi/audio/protocol.py",
+      "package": "pi.audio",
+      "purpose": "Audio packet layout",
+      "public_classes": [],
+      "public_functions": [],
+      "imports": [
+        "struct"
+      ],
+      "called_by": [
+        "pi/audio/streamer.py",
+        "pc/services/audio_receiver.py"
+      ],
+      "calls_into": [],
+      "config_keys": [],
+      "runtime_responsibilities": [
+        "define AUDIO_HEADER"
+      ]
+    },
+    {
+      "path": "pi/audio/signal_processing.py",
+      "package": "pi.audio",
+      "purpose": "Channel selection and AGC/gate",
+      "public_classes": [],
+      "public_functions": [
+        "select_mono_channel",
+        "apply_agc_and_gate"
+      ],
+      "imports": [
+        "numpy"
+      ],
+      "called_by": [
+        "pi/audio/streamer.py",
+        "pi/audio_diagnostics.py"
+      ],
+      "calls_into": [],
+      "config_keys": [],
+      "runtime_responsibilities": [
+        "select mono channel and convert to int16 PCM"
+      ]
+    },
+    {
+      "path": "pi/audio/streamer.py",
+      "package": "pi.audio",
+      "purpose": "UDP microphone streaming service",
+      "public_classes": [
+        {
+          "name": "UDPMicStreamer",
+          "methods": [
+            "run"
+          ]
+        }
+      ],
+      "public_functions": [],
+      "imports": [
+        "signal",
+        "socket",
+        "numpy",
+        "pyaudio",
+        "pi.audio.config",
+        "pi.audio.device_selection",
+        "pi.audio.protocol",
+        "pi.audio.signal_processing"
+      ],
+      "called_by": [
+        "pi/mic_udp_streamer.py"
+      ],
+      "calls_into": [
+        "PyAudio stream.read",
+        "AUDIO_HEADER.pack",
+        "socket.sendto"
+      ],
+      "config_keys": [
+        "INPUT_CHANNELS",
+        "OUTPUT_CHANNELS",
+        "FORMAT",
+        "CHUNK_FRAMES",
+        "INPUT_DEVICE_INDEX",
+        "CHANNEL_MODE",
+        "NOISE_GATE_RMS",
+        "TARGET_RMS",
+        "MIN_GAIN",
+        "MAX_GAIN",
+        "AGC_ATTACK",
+        "AGC_RELEASE",
+        "settings.pc_host",
+        "settings.udp_audio_port",
+        "settings.pi_sample_rate"
+      ],
+      "runtime_responsibilities": [
+        "capture microphone input",
+        "apply signal processing",
+        "send UDP PCM"
+      ]
+    },
+    {
+      "path": "pi/video/config.py",
+      "package": "pi.video",
+      "purpose": "Video streamer constants",
+      "public_classes": [],
+      "public_functions": [],
+      "imports": [],
+      "called_by": [
+        "pi/video/streamer.py",
+        "pi/video/frame_source.py"
+      ],
+      "calls_into": [],
+      "config_keys": [],
+      "runtime_responsibilities": [
+        "store frame dimensions, fps, JPEG quality"
+      ]
+    },
+    {
+      "path": "pi/video/frame_source.py",
+      "package": "pi.video",
+      "purpose": "Camera and synthetic frame source",
+      "public_classes": [],
+      "public_functions": [
+        "open_camera",
+        "synthetic_frame"
+      ],
+      "imports": [
+        "cv2",
+        "numpy",
+        "time",
+        "pi.video.config"
+      ],
+      "called_by": [
+        "pi/video/streamer.py"
+      ],
+      "calls_into": [
+        "Picamera2 when available"
+      ],
+      "config_keys": [
+        "FRAME_WIDTH",
+        "FRAME_HEIGHT",
+        "FPS"
+      ],
+      "runtime_responsibilities": [
+        "open camera or provide fallback synthetic frames"
+      ]
+    },
+    {
+      "path": "pi/video/protocol.py",
+      "package": "pi.video",
+      "purpose": "Video packet layout",
+      "public_classes": [],
+      "public_functions": [],
+      "imports": [
+        "struct"
+      ],
+      "called_by": [
+        "pi/video/streamer.py",
+        "pc/video/receiver_widget.py"
+      ],
+      "calls_into": [],
+      "config_keys": [],
+      "runtime_responsibilities": [
+        "define video chunk and heartbeat structures"
+      ]
+    },
+    {
+      "path": "pi/video/streamer.py",
+      "package": "pi.video",
+      "purpose": "UDP video streamer",
+      "public_classes": [
+        {
+          "name": "UDPVideoStreamer",
+          "methods": [
+            "run"
+          ]
+        }
+      ],
+      "public_functions": [
+        "configure_logging"
+      ],
+      "imports": [
+        "logging",
+        "signal",
+        "socket",
+        "time",
+        "cv2",
+        "pi.video.config",
+        "pi.video.frame_source",
+        "pi.video.protocol"
+      ],
+      "called_by": [
+        "pi/video_udp_streamer.py"
+      ],
+      "calls_into": [
+        "open_camera",
+        "synthetic_frame",
+        "cv2.imencode",
+        "socket.sendto"
+      ],
+      "config_keys": [
+        "FRAME_WIDTH",
+        "FRAME_HEIGHT",
+        "FPS",
+        "JPEG_QUALITY",
+        "settings.pc_host",
+        "settings.udp_video_port"
+      ],
+      "runtime_responsibilities": [
+        "send JPEG chunks",
+        "send heartbeat every 500 ms",
+        "graceful signal shutdown"
+      ]
+    },
+    {
+      "path": "pi/audio_diagnostics.py",
+      "package": "pi",
+      "purpose": "Microphone diagnostics utility",
+      "public_classes": [],
+      "public_functions": [
+        "diagnose_audio"
+      ],
+      "imports": [
+        "numpy",
+        "pyaudio",
+        "pi.audio.config",
+        "pi.audio.device_selection",
+        "pi.audio.signal_processing"
+      ],
+      "called_by": [
+        "manual run"
+      ],
+      "calls_into": [
+        "PyAudio",
+        "select_input_device",
+        "apply_agc_and_gate"
+      ],
+      "config_keys": [
+        "INPUT_CHANNELS",
+        "OUTPUT_CHANNELS",
+        "CHUNK_FRAMES",
+        "CHANNEL_MODE",
+        "NOISE_GATE_RMS",
+        "TARGET_RMS",
+        "AGC_ATTACK",
+        "AGC_RELEASE"
+      ],
+      "runtime_responsibilities": [
+        "measure microphone RMS and gate behavior"
+      ]
+    },
+    {
+      "path": "archives/pc/mic_udp_receiver.py",
+      "package": "archives.pc",
+      "purpose": "Historical UDP audio playback receiver",
+      "public_classes": [
+        {
+          "name": "UDPAudioReceiver",
+          "methods": [
+            "start",
+            "stop",
+            "close"
+          ]
+        }
+      ],
+      "public_functions": [],
+      "imports": [
+        "socket",
+        "struct",
+        "threading",
+        "time",
+        "collections.deque",
+        "pyaudio"
+      ],
+      "called_by": [
+        "legacy manual run"
+      ],
+      "calls_into": [
+        "PyAudio playback stream"
+      ],
+      "config_keys": [],
+      "runtime_responsibilities": [
+        "receive UDP PCM and play it back"
+      ],
+      "archived": true
+    },
+    {
+      "path": "archives/pc/mic_udp_reciever.py",
+      "package": "archives.pc",
+      "purpose": "Typo compatibility shim for old audio receiver name",
+      "public_classes": [],
+      "public_functions": [],
+      "imports": [],
+      "called_by": [],
+      "calls_into": [],
+      "config_keys": [],
+      "runtime_responsibilities": [],
+      "archived": true
+    },
+    {
+      "path": "archives/pc/video_udp_receiver.py",
+      "package": "archives.pc",
+      "purpose": "Compatibility facade for modular video receiver",
+      "public_classes": [],
+      "public_functions": [],
+      "imports": [],
+      "called_by": [],
+      "calls_into": [],
+      "config_keys": [],
+      "runtime_responsibilities": [],
+      "archived": true
+    },
+    {
+      "path": "archives/pc/video_udp_reciever.py",
+      "package": "archives.pc",
+      "purpose": "Typo compatibility shim for old video receiver name",
+      "public_classes": [],
+      "public_functions": [],
+      "imports": [],
+      "called_by": [],
+      "calls_into": [],
+      "config_keys": [],
+      "runtime_responsibilities": [],
+      "archived": true
+    },
+    {
+      "path": "archives/pc/yolo_packet.py",
+      "package": "archives.pc",
+      "purpose": "Structured YOLO result container used by older experiments",
+      "public_classes": [
+        {
+          "name": "YoloObject",
+          "methods": [
+            "center",
+            "area"
+          ]
+        },
+        {
+          "name": "YoloPacket",
+          "methods": [
+            "from_results",
+            "labels",
+            "detection_count",
+            "to_prompt_context"
+          ]
+        }
+      ],
+      "public_functions": [],
+      "imports": [
+        "time",
+        "numpy",
+        "typing.Optional"
+      ],
+      "called_by": [],
+      "calls_into": [
+        "ultralytics.Results objects"
+      ],
+      "config_keys": [],
+      "runtime_responsibilities": [],
+      "archived": true
+    }
+  ],
+  "threads": [
+    {
+      "name": "Tk main thread",
+      "owner": "pc/client.py",
+      "purpose": "GUI event loop",
+      "sync": "Tk event loop"
+    },
+    {
+      "name": "AudioReceiverService thread",
+      "owner": "pc/services/audio_receiver.py",
+      "purpose": "UDP audio receive",
+      "sync": "stop_event + queue"
+    },
+    {
+      "name": "WhisperService thread",
+      "owner": "pc/services/whisper_service.py",
+      "purpose": "Speech segmentation/transcription",
+      "sync": "stop_event + RuntimeConfig lock + queues"
+    },
+    {
+      "name": "OllamaService thread",
+      "owner": "pc/services/ollama_service.py",
+      "purpose": "Streaming response worker",
+      "sync": "stop_event + queue"
+    },
+    {
+      "name": "UDPVideoReceiver poll timer",
+      "owner": "pc/video/receiver_widget.py",
+      "purpose": "poll UDP socket",
+      "sync": "Tk.after"
+    },
+    {
+      "name": "UDPVideoReceiver render worker",
+      "owner": "pc/video/receiver_widget.py",
+      "purpose": "decode/inference/render frames",
+      "sync": "render queue + inference lock + stop event"
+    },
+    {
+      "name": "GUI drain timers",
+      "owner": "pc/operator_console_app.py",
+      "purpose": "drain UI and log queues and refresh status",
+      "sync": "Tk.after"
+    },
+    {
+      "name": "Startup checks thread",
+      "owner": "pc/operator_console_app.py",
+      "purpose": "validate model/UDP/Ollama",
+      "sync": "_post_ui"
+    },
+    {
+      "name": "Streamer status thread",
+      "owner": "pc/operator_console_app.py",
+      "purpose": "query Pi streamer status over SSH",
+      "sync": "_post_ui"
+    },
+    {
+      "name": "Streamer action thread",
+      "owner": "pc/operator_console_app.py",
+      "purpose": "start/stop Pi streamer over SSH",
+      "sync": "_post_ui"
+    },
+    {
+      "name": "ThreadMonitor monitor thread",
+      "owner": "pc/services/thread_monitor.py",
+      "purpose": "restart dead threads",
+      "sync": "internal lock + stop event"
+    }
+  ],
+  "processes": [
+    {
+      "name": "PC GUI process",
+      "entrypoint": "pc/client.py",
+      "role": "operator console"
+    },
+    {
+      "name": "Pi microphone streamer process",
+      "entrypoint": "pi/mic_udp_streamer.py",
+      "role": "capture and transmit audio"
+    },
+    {
+      "name": "Pi video streamer process",
+      "entrypoint": "pi/video_udp_streamer.py",
+      "role": "capture and transmit video"
+    },
+    {
+      "name": "Pi audio diagnostics process",
+      "entrypoint": "pi/audio_diagnostics.py",
+      "role": "manual signal inspection"
+    },
+    {
+      "name": "SSH child processes",
+      "entrypoint": "pc/services/pi_streamer_manager.py",
+      "role": "remote command execution"
+    }
+  ],
+  "network_ports": [
+    {
+      "port": 5000,
+      "protocol": "UDP",
+      "direction": "Pi -> PC",
+      "purpose": "video chunks and heartbeat",
+      "owner": "UDPVideoStreamer / UDPVideoReceiver"
+    },
+    {
+      "port": 5001,
+      "protocol": "UDP",
+      "direction": "Pi -> PC",
+      "purpose": "audio PCM",
+      "owner": "UDPMicStreamer / AudioReceiverService"
+    },
+    {
+      "port": 22,
+      "protocol": "SSH",
+      "direction": "PC -> Pi",
+      "purpose": "remote streamer control",
+      "owner": "PiStreamerManager"
+    },
+    {
+      "port": 11434,
+      "protocol": "HTTP",
+      "direction": "PC -> Ollama",
+      "purpose": "LLM generation endpoint",
+      "owner": "OllamaService and StartupChecks"
+    }
+  ],
+  "gui_controls": [
+    {
+      "name": "connect_btn",
+      "widget": "ttk.Button",
+      "callback": "toggle_connection"
+    },
+    {
+      "name": "server_entry",
+      "widget": "ttk.Entry",
+      "callback": "server_var"
+    },
+    {
+      "name": "check_button",
+      "widget": "ttk.Button",
+      "callback": "run_startup_checks"
+    },
+    {
+      "name": "audio_enabled_var",
+      "widget": "ttk.Checkbutton",
+      "callback": "toggle_audio_stream"
+    },
+    {
+      "name": "threshold_var",
+      "widget": "ttk.Scale",
+      "callback": "_on_threshold_change"
+    },
+    {
+      "name": "silence_var",
+      "widget": "ttk.Scale",
+      "callback": "_on_silence_change"
+    },
+    {
+      "name": "Start Listening",
+      "widget": "ttk.Button",
+      "callback": "start_listening"
+    },
+    {
+      "name": "Stop Listening",
+      "widget": "ttk.Button",
+      "callback": "stop_listening"
+    },
+    {
+      "name": "Start Inference",
+      "widget": "ttk.Button",
+      "callback": "start_inference"
+    },
+    {
+      "name": "Stop Inference",
+      "widget": "ttk.Button",
+      "callback": "stop_inference"
+    },
+    {
+      "name": "Start Mic Streamer",
+      "widget": "ttk.Button",
+      "callback": "start_mic_streamer"
+    },
+    {
+      "name": "Stop Mic Streamer",
+      "widget": "ttk.Button",
+      "callback": "stop_mic_streamer"
+    },
+    {
+      "name": "Start Video Streamer",
+      "widget": "ttk.Button",
+      "callback": "start_video_streamer"
+    },
+    {
+      "name": "Stop Video Streamer",
+      "widget": "ttk.Button",
+      "callback": "stop_video_streamer"
+    },
+    {
+      "name": "Refresh Streamer Status",
+      "widget": "ttk.Button",
+      "callback": "refresh_streamer_status"
+    },
+    {
+      "name": "video_placeholder",
+      "widget": "tk.Label",
+      "callback": "removed/reinserted by video receiver lifecycle"
+    },
+    {
+      "name": "log_box",
+      "widget": "ScrolledText",
+      "callback": "GuiLogHandler + _drain_log_queue"
+    }
+  ],
+  "configuration": [
+    {
+      "key": "PIBOT_CONFIG_FILE",
+      "type": "env",
+      "default": "pibot.env"
+    },
+    {
+      "key": "PIBOT_UDP_BIND_HOST",
+      "type": "env",
+      "default": "0.0.0.0"
+    },
+    {
+      "key": "PIBOT_PC_HOST",
+      "type": "env",
+      "default": "192.168.0.189"
+    },
+    {
+      "key": "PIBOT_UDP_AUDIO_PORT",
+      "type": "env",
+      "default": 5001
+    },
+    {
+      "key": "PIBOT_UDP_VIDEO_PORT",
+      "type": "env",
+      "default": 5000
+    },
+    {
+      "key": "PIBOT_WHISPER_SAMPLE_RATE",
+      "type": "env",
+      "default": 16000
+    },
+    {
+      "key": "PIBOT_PI_SAMPLE_RATE",
+      "type": "env",
+      "default": 48000
+    },
+    {
+      "key": "PIBOT_YOLO_MODEL_PATH",
+      "type": "env",
+      "default": "yolo26m.pt"
+    },
+    {
+      "key": "PIBOT_OLLAMA_URL",
+      "type": "env",
+      "default": "http://localhost:11434/api/generate"
+    },
+    {
+      "key": "PIBOT_OLLAMA_MODEL",
+      "type": "env",
+      "default": "llama3:instruct"
+    },
+    {
+      "key": "PIBOT_PI_HOST",
+      "type": "env",
+      "default": "192.168.0.38"
+    },
+    {
+      "key": "PIBOT_PI_USER",
+      "type": "env",
+      "default": "jorg"
+    },
+    {
+      "key": "PIBOT_PI_VENV_PATH",
+      "type": "env",
+      "default": "/home/jorg/venv"
+    },
+    {
+      "key": "PIBOT_PI_PROJECT_PATH",
+      "type": "env",
+      "default": "/home/jorg/pibot"
+    },
+    {
+      "key": "RuntimeConfig.volume_threshold",
+      "type": "runtime",
+      "default": 0.045
+    },
+    {
+      "key": "RuntimeConfig.silence_timeout",
+      "type": "runtime",
+      "default": 1.2
+    },
+    {
+      "key": "RuntimeConfig.audio_stream_enabled",
+      "type": "runtime",
+      "default": true
+    },
+    {
+      "key": "RuntimeConfig.listening_enabled",
+      "type": "runtime",
+      "default": true
+    },
+    {
+      "key": "INPUT_CHANNELS",
+      "type": "pi.audio",
+      "default": 2
+    },
+    {
+      "key": "OUTPUT_CHANNELS",
+      "type": "pi.audio",
+      "default": 1
+    },
+    {
+      "key": "FORMAT",
+      "type": "pi.audio",
+      "default": "pyaudio.paInt32"
+    },
+    {
+      "key": "CHUNK_FRAMES",
+      "type": "pi.audio",
+      "default": 1024
+    },
+    {
+      "key": "CHANNEL_MODE",
+      "type": "pi.audio",
+      "default": "left"
+    },
+    {
+      "key": "NOISE_GATE_RMS",
+      "type": "pi.audio",
+      "default": 0.0005
+    },
+    {
+      "key": "TARGET_RMS",
+      "type": "pi.audio",
+      "default": 0.08
+    },
+    {
+      "key": "MIN_GAIN",
+      "type": "pi.audio",
+      "default": 1.0
+    },
+    {
+      "key": "MAX_GAIN",
+      "type": "pi.audio",
+      "default": 28.0
+    },
+    {
+      "key": "AGC_ATTACK",
+      "type": "pi.audio",
+      "default": 0.35
+    },
+    {
+      "key": "AGC_RELEASE",
+      "type": "pi.audio",
+      "default": 0.15
+    },
+    {
+      "key": "FRAME_WIDTH",
+      "type": "pi.video",
+      "default": 640
+    },
+    {
+      "key": "FRAME_HEIGHT",
+      "type": "pi.video",
+      "default": 480
+    },
+    {
+      "key": "FPS",
+      "type": "pi.video",
+      "default": 20
+    },
+    {
+      "key": "JPEG_QUALITY",
+      "type": "pi.video",
+      "default": 50
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "Audio UDP",
+      "caller": "UDPMicStreamer",
+      "receiver": "AudioReceiverService",
+      "protocol": "UDP",
+      "format": "AUDIO_HEADER + int16 PCM",
+      "timeout": "0.5s socket timeout on receiver",
+      "recovery": "drop on full queue; manual reconnect"
+    },
+    {
+      "name": "Video UDP",
+      "caller": "UDPVideoStreamer",
+      "receiver": "UDPVideoReceiver",
+      "protocol": "UDP",
+      "format": "CHUNK_HEADER + JPEG chunks",
+      "timeout": "15ms GUI poll + 0.2s worker gets",
+      "recovery": "buffer pruning; manual reconnect"
+    },
+    {
+      "name": "Heartbeat UDP",
+      "caller": "UDPVideoStreamer",
+      "receiver": "UDPVideoReceiver",
+      "protocol": "UDP",
+      "format": "HEARTBEAT_PACKET",
+      "timeout": "500ms send interval",
+      "recovery": "UI offline after ~2s without heartbeat"
+    },
+    {
+      "name": "Ollama HTTP",
+      "caller": "OllamaService",
+      "receiver": "Ollama server",
+      "protocol": "HTTP POST",
+      "format": "{model,prompt,stream:true}",
+      "timeout": "120s request timeout",
+      "recovery": "log error and append fallback text"
+    },
+    {
+      "name": "SSH control",
+      "caller": "PiStreamerManager",
+      "receiver": "Pi SSH daemon",
+      "protocol": "SSH",
+      "format": "shell command string",
+      "timeout": "8s connect timeout; 12/20s command timeouts",
+      "recovery": "return ssh-failed/failed; no retry"
+    },
+    {
+      "name": "Whisper in-process API",
+      "caller": "WhisperService",
+      "receiver": "openai-whisper",
+      "protocol": "Python API",
+      "format": "float32 audio array",
+      "timeout": "worker loop timeout 0.2s on queue",
+      "recovery": "log exception; return empty transcript"
+    },
+    {
+      "name": "YOLO in-process API",
+      "caller": "InferenceEngine",
+      "receiver": "ultralytics.YOLO",
+      "protocol": "Python API",
+      "format": "RGB/ BGR frame arrays",
+      "timeout": "worker queue timeout 0.2s",
+      "recovery": "surface error status"
+    },
+    {
+      "name": "Camera API",
+      "caller": "frame_source.open_camera",
+      "receiver": "Picamera2",
+      "protocol": "Python API",
+      "format": "RGB frames",
+      "timeout": "none",
+      "recovery": "synthetic frame fallback"
+    },
+    {
+      "name": "Logging queue",
+      "caller": "GuiLogHandler",
+      "receiver": "OperatorConsoleApp._drain_log_queue",
+      "protocol": "in-process queue",
+      "format": "formatted strings",
+      "timeout": "80ms timer",
+      "recovery": "drop on queue full"
+    }
+  ],
+  "relationships": [
+    {
+      "from": "pc/client.py",
+      "to": "pc/operator_console_app.py",
+      "type": "startup"
+    },
+    {
+      "from": "pc/operator_console_app.py",
+      "to": "pc/services/audio_receiver.py",
+      "type": "owns worker"
+    },
+    {
+      "from": "pc/operator_console_app.py",
+      "to": "pc/services/whisper_service.py",
+      "type": "owns worker"
+    },
+    {
+      "from": "pc/operator_console_app.py",
+      "to": "pc/services/ollama_service.py",
+      "type": "owns worker"
+    },
+    {
+      "from": "pc/operator_console_app.py",
+      "to": "pc/video/receiver_widget.py",
+      "type": "owns widget"
+    },
+    {
+      "from": "pc/operator_console_app.py",
+      "to": "pc/services/pi_streamer_manager.py",
+      "type": "SSH control"
+    },
+    {
+      "from": "pi/mic_udp_streamer.py",
+      "to": "pi/audio/streamer.py",
+      "type": "launches"
+    },
+    {
+      "from": "pi/video_udp_streamer.py",
+      "to": "pi/video/streamer.py",
+      "type": "launches"
+    },
+    {
+      "from": "pc/video/receiver_widget.py",
+      "to": "pc/video/frame_buffer.py",
+      "type": "chunk assembly"
+    },
+    {
+      "from": "pc/video/receiver_widget.py",
+      "to": "pc/video/inference_engine.py",
+      "type": "inference"
+    },
+    {
+      "from": "pc/services/whisper_service.py",
+      "to": "pc/services/prompt_submission.py",
+      "type": "envelope"
+    },
+    {
+      "from": "pc/services/ollama_service.py",
+      "to": "pc/services/prompt_submission.py",
+      "type": "consumes envelope"
+    },
+    {
+      "from": "pi/video/streamer.py",
+      "to": "pi/video/frame_source.py",
+      "type": "frame source"
+    },
+    {
+      "from": "pi/audio/streamer.py",
+      "to": "pi/audio/signal_processing.py",
+      "type": "signal processing"
+    }
+  ],
+  "notes": [
+    "ThreadMonitor exists but is not wired into the GUI.",
+    "The UI contains an unused _build_bottom_panel() helper; the logs tab is the active log surface.",
+    "Video packet discrimination relies on the first byte even though chunk packets do not carry an explicit type field.",
+    "Archived compatibility shims remain in archives/pc and are not part of the current runtime path."
+  ]
+}

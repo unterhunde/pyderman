@@ -1,0 +1,28 @@
+%% Title: Streamer Control Lifecycle Diagram
+%% Purpose: Describe GUI-to-Pi action flow for starting, stopping, and status refreshing of streamers.
+%% Last Updated: 2026-06-26
+%% Source Prompt: User request: "update all files in /docs/ to be compliant with the attached file"
+%% Source Documents Used: docs/json/prompt_header.json, docs/Prompt_Header.md, docs/json/system_manifest.json
+%% Source Implementation Analyzed: docs/
+%% Related Documents: docs/System_Diagnostic_and_Troubleshooting_Guide.md, docs/diagnostics/video_pipeline_flow.mmd, docs/diagnostics/whisper_pipeline_flow.mmd
+%% Assumptions: Compliance is satisfied by including required Prompt Header fields in Mermaid comments.
+%% Revision History:
+%% - 2026-06-26: Added Prompt Header compliance metadata.
+
+flowchart TD
+    A[GUI Button Click\nStart/Stop Mic or Video Streamer] --> B[OperatorConsoleApp.start_* / stop_*]
+    B --> C[_run_streamer_action(streamer, action)]
+    C --> D[Background thread\n_streamer_action_worker]
+    D --> E[PiStreamerManager.run_action]
+    E --> F[SSH command to Pi]
+    F --> G{Action}
+    G -->|start| H[nohup python pi/*_udp_streamer.py\nwrite .run/*_streamer.pid]
+    G -->|stop| I[kill PID from .run/*_streamer.pid\nremove pid file]
+    H --> J[echo started|failed]
+    I --> J2[echo stopped|already-stopped]
+    J --> K[Worker updates GUI status label]
+    J2 --> K
+    K --> L[sleep 1s]
+    L --> M[refresh_streamer_status(streamer)]
+    M --> N[PiStreamerManager.query_status via SSH]
+    N --> O[GUI status label: running/stopped/error]

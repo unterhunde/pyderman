@@ -1,0 +1,25 @@
+%% Title: Whisper Pipeline Flow Diagram
+%% Purpose: Describe audio ingestion, segmentation, transcription, and Ollama prompt submission flow.
+%% Last Updated: 2026-06-26
+%% Source Prompt: User request: "update all files in /docs/ to be compliant with the attached file"
+%% Source Documents Used: docs/json/prompt_header.json, docs/Prompt_Header.md, docs/json/system_manifest.json
+%% Source Implementation Analyzed: docs/
+%% Related Documents: docs/System_Diagnostic_and_Troubleshooting_Guide.md, docs/diagnostics/streamer_control_lifecycle.mmd, docs/diagnostics/video_pipeline_flow.mmd
+%% Assumptions: Compliance is satisfied by including required Prompt Header fields in Mermaid comments.
+%% Revision History:
+%% - 2026-06-26: Added Prompt Header compliance metadata.
+
+flowchart TD
+    A[Pi Mic Input] --> B[pi/audio/streamer.py\nAGC + gate + mono select]
+    B --> C[UDP audio packets\nport 5001]
+    C --> D[AudioReceiverService]
+    D --> E[audio_queue\nfloat32 16kHz chunks + RMS]
+    E --> F[WhisperService segmentation]
+    F --> G[Partial transcript callback]
+    F --> H{Finalize phrase?}
+    H -->|yes| I[Whisper final transcript]
+    I --> J[PromptSubmission\nphrase_id + text]
+    J --> K[ollama_queue]
+    K --> L[OllamaService]
+    L --> M[HTTP stream to Ollama /api/generate]
+    M --> N[Assistant output tokens in GUI]
