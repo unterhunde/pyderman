@@ -30,3 +30,4 @@ Requirements:
    - root cause candidates
    - exact files/functions involved
    - recommended minimal edit plan
+10. Record you results into a file in /docs/diagnostics/diagnostics results/
