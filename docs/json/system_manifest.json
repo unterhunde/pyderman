@@ -20,7 +20,8 @@
       "docs/System_Diagnostic_and_Troubleshooting_Guide.md",
       "docs/Repo_Audit_and_Debt.md",
       "docs/json/prompt_header.json",
-      "docs/Prompt_Header.md"
+      "docs/Prompt_Header.md",
+      "docs/System_Architect/System_Implementation_Plan.md"
     ],
     "assumptions": [
       "Compliance is satisfied by including required Prompt Header fields in this JSON document metadata."
