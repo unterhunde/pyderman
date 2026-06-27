@@ -45,6 +45,8 @@ class OperatorConsoleApp:
         self.last_heartbeat_time = 0.0
         self.video_packet_count = 0
         self.video_frame_count = 0
+        self._ollama_server_url_lock = threading.Lock()
+        self._ollama_server_url = self.settings.ollama_url
 
         self.audio_receiver: AudioReceiverService | None = None
         self.whisper_worker: WhisperService | None = None
@@ -136,6 +138,8 @@ class OperatorConsoleApp:
 
         ttk.Label(bar, text="Server", style="Header.TLabel").grid(row=0, column=2, sticky="e", padx=(20, 8))
         self.server_var = tk.StringVar(value=self.settings.ollama_url)
+        self.server_var.trace_add("write", self._on_server_var_changed)
+        self._sync_ollama_server_url_from_var()
         self.server_entry = ttk.Entry(bar, textvariable=self.server_var, width=44)
         self.server_entry.grid(row=0, column=3, sticky="ew", padx=(0, 12))
 
@@ -156,6 +160,18 @@ class OperatorConsoleApp:
         self.check_ollama_value.grid(row=1, column=3, sticky="w", pady=(8, 0))
         self.check_button = ttk.Button(bar, text="Run Checks", command=self.run_startup_checks)
         self.check_button.grid(row=1, column=4, sticky="e", pady=(8, 0))
+
+    def _on_server_var_changed(self, *_args: object) -> None:
+        self._sync_ollama_server_url_from_var()
+
+    def _sync_ollama_server_url_from_var(self) -> None:
+        server_url = self.server_var.get().strip() or self.settings.ollama_url
+        with self._ollama_server_url_lock:
+            self._ollama_server_url = server_url
+
+    def _get_ollama_server_url(self) -> str:
+        with self._ollama_server_url_lock:
+            return self._ollama_server_url
 
     def _build_main_panels(self) -> None:
         content = ttk.Frame(self.root, style="App.TFrame", padding=(12, 10))
@@ -537,7 +553,8 @@ class OperatorConsoleApp:
         self.check_udp_value.configure(text="UDP: checking...", style="Warn.TLabel")
         self.check_ollama_value.configure(text="Ollama: checking...", style="Warn.TLabel")
         self.check_button.state(["disabled"])
-        server_url = self.server_var.get().strip() or self.settings.ollama_url
+        self._sync_ollama_server_url_from_var()
+        server_url = self._get_ollama_server_url()
         threading.Thread(target=self._startup_checks_worker, args=(server_url,), daemon=True).start()
 
     def _startup_checks_worker(self, server_url: str) -> None:
@@ -567,6 +584,7 @@ class OperatorConsoleApp:
             return
         try:
             self.logger.info("Starting connection sequence...")
+            self._sync_ollama_server_url_from_var()
             self.stop_event = threading.Event()
             self.audio_queue = queue.Queue(maxsize=400)
             self.ollama_queue = queue.Queue(maxsize=16)
@@ -605,7 +623,7 @@ class OperatorConsoleApp:
                 self.reset_ai_output,
                 self.append_ai_output,
                 self.set_transcript_status,
-                lambda: self.server_var.get().strip() or self.settings.ollama_url,
+                self._get_ollama_server_url,
                 self.logger,
                 model_name=self.settings.ollama_model,
             )

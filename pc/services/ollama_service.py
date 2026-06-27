@@ -51,14 +51,15 @@ class OllamaService(threading.Thread):
             self.on_output_reset()
             self.on_output_append(f"Prompt: {prompt}\n\n")
             try:
+                server_url = self.url_getter()
                 self.logger.info(
                     "LLM request started | phrase=%s model=%s url=%s",
                     submission.phrase_id,
                     self.model_name,
-                    self.url_getter(),
+                    server_url,
                 )
                 response = requests.post(
-                    self.url_getter(),
+                    server_url,
                     json={"model": self.model_name, "prompt": prompt, "stream": True},
                     stream=True,
                     timeout=120,
