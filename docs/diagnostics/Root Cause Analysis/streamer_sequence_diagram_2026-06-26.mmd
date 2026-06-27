@@ -1,0 +1,46 @@
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant G as Tk GUI thread
+    participant AQ as UI queue
+    participant AW as Action worker thread(s)
+    participant RW as Refresh worker thread(s)
+    participant PM as PiStreamerManager
+    participant SSH as ssh subprocess
+    participant PI as Pi process state
+
+    U->>G: Click Start Mic
+    G->>G: status_label="Starting..."
+    G->>AW: spawn _streamer_action_worker(mic,start)
+    AW->>PM: run_action(mic,start)
+    PM->>SSH: subprocess.run(..., timeout=20)
+
+    U->>G: Click Start Video (before first completes)
+    G->>G: status_label="Starting..."
+    G->>AW: spawn _streamer_action_worker(video,start)
+    AW->>PM: run_action(video,start) (waits on PM lock)
+
+    note over SSH,PI: Intermittent long SSH session; remote side may still launch streamer
+    PI-->>PI: streamer becomes alive
+    SSH-->>PM: TimeoutExpired => None
+    PM-->>AW: (False, "ssh-failed")
+    AW->>AQ: post status_label="ssh-failed" (no refresh on failure)
+
+    PM->>SSH: queued next start now executes; may also timeout
+    SSH-->>PM: TimeoutExpired => None
+    PM-->>AW: (False, "ssh-failed")
+    AW->>AQ: post status_label="ssh-failed"
+
+    par Other trigger (startup/manual/success path)
+        G->>RW: refresh_streamer_status(...)
+        RW->>PM: query_status(...)
+        PM->>SSH: subprocess.run(..., timeout=12)
+        SSH-->>PM: "running"
+        PM-->>RW: (True, "running")
+        RW->>AQ: post status_label="running"
+    and UI drain
+        G->>AQ: periodic drain every 20ms
+        AQ-->>G: apply queued callbacks FIFO
+    end
+
+    note over G: Final visible label depends on callback arrival order,\nnot on operation recency/intent.
