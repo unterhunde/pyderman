@@ -5,14 +5,16 @@
 **Last Updated:** 2026-06-26  
 **Source Prompt:** Runtime Implementation Agent — Fix Pi streamer start/stop/status reliability  
 **Source Documents Used:**
-- `docs/diagnostics/diagnostics results/streamer_control_diagnostic_2026-06-26.md`
-- `docs/json/system_manifest.json`
+- `"docs/Agent Docs/diagnostics/streamer_control_diagnostic_2026-06-26.md"`
+- `docs/System_Architecture_and_Interface_Control_Document.md`
 
 **Source Implementation Analyzed:** `pc/services/pi_streamer_manager.py`  
 **Related Documents:**
-- `docs/diagnostics/diagnostics results/streamer_control_diagnostic_2026-06-26.md`
+- `"docs/Agent Docs/diagnostics/streamer_control_diagnostic_2026-06-26.md"`
 - `docs/System_Architecture_and_Interface_Control_Document.md`
 - `docs/System_Diagnostic_and_Troubleshooting_Guide.md`
+
+**Legacy reference note:** Earlier drafts referenced `docs/diagnostics/diagnostics results/` and `docs/json/system_manifest.json`. Those are retained as historical labels only and are not active documentation locations in this repository snapshot.
 
 **Assumptions:**
 - Mic streamer audio hardware failure (RC-3) is a separate Pi hardware issue and is **not** addressed here.

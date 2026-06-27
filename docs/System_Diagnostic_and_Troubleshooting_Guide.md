@@ -6,24 +6,31 @@
 - **Purpose:** Provide operational diagnostics, troubleshooting workflows, and runtime failure-mode guidance for PiBot.
 - **Last Updated:** 2026-06-26
 - **Source Prompt:** User request: "update all files in /docs/ to be compliant with the attached file"
-- **Source Documents Used:** `docs/json/prompt_header.json`, `docs/Prompt_Header.md`, `docs/json/system_manifest.json`
-- **Source Implementation Analyzed:** `docs/`
-- **Related Documents:** `docs/json/prompt_header.json`, `docs/Prompt_Header.md`, `docs/json/system_manifest.json`, `docs/json/System_Diagnostic_and_Troubleshooting_Guide.json`, `docs/diagnostics/*.mmd`
-- **Assumptions:** Compliance is satisfied by including the required fields defined in `docs/json/prompt_header.json` under `documentation_generation_rules.required_fields`.
+- **Source Documents Used:** `"docs/Agent Docs/implementation/"`, `"docs/Agent Docs/diagnostics/"`, `"docs/Agent Docs/validation/"`, `"docs/Agent Docs/root cause analysis/"`, `"docs/Agent Docs/checkpoints/"`
+- **Source Implementation Analyzed:** `pc/`, `pi/`, `tests/`, `pibot_config.py`
+- **Related Documents:** `docs/System_Architecture_and_Interface_Control_Document.md`, `"docs/Agent Docs/implementation/"`, `"docs/Agent Docs/diagnostics/"`, `"docs/Agent Docs/validation/"`, `"docs/Agent Docs/root cause analysis/"`, `"docs/Agent Docs/checkpoints/"`, and historical diagram path labels (for example `docs/old - diagnostics/*.mmd`, not present in this snapshot)
+- **Assumptions:** Active troubleshooting artifacts are maintained under `docs/Agent Docs/`; historical JSON and diagnostics path labels are legacy reference only and are not authoritative active sources.
 - **Revision History:**
   - 2026-06-26: Added Prompt Header compliance metadata block.
+  - 2026-06-26: Updated active documentation references to `docs/Agent Docs/` and retired legacy paths.
 
 Last updated: 2026-06-26  
-Primary index: `docs/json/system_manifest.json`
+Primary index: `"docs/Agent Docs/"`
+
+## Retired / Legacy Documentation
+
+- `docs/old-json/` is retained only for historical reference and must not be used as the current manifest source (Legacy label; no corresponding directory is present in this repository snapshot).
+- `docs/Agent Docs/old-diagnostics/` is retained only for historical reference and must not be used as the current diagnostics source (Legacy label; no corresponding directory is present in this repository snapshot).
+- New agents should prefer current files under `docs/Agent Docs/`.
 
 ## 1) Purpose, Scope, and Method
 
 This guide is the engineering troubleshooting reference for PiBot runtime operations across:
 
-- `/home/jorg/pibot/pc`
-- `/home/jorg/pibot/pi`
+- `/home/jorg/pyderman/pc`
+- `/home/jorg/pyderman/pi`
 
-Primary source is `docs/json/system_manifest.json` (modules, threads, processes, interfaces, controls, ports, configuration).  
+Primary active sources are `"docs/Agent Docs/implementation/"`, `"docs/Agent Docs/diagnostics/"`, `"docs/Agent Docs/validation/"`, `"docs/Agent Docs/root cause analysis/"`, and `"docs/Agent Docs/checkpoints/"` (modules, threads, processes, interfaces, controls, ports, configuration context). Historical manifest references such as `docs/json/system_manifest.json`, `docs/json/`, and `docs/old-json/` are legacy/historical and not authoritative for current operations.  
 Implementation was spot-checked in referenced files to reflect current code behavior where it differs or needs clarification.
 
 ### What this guide covers
@@ -70,9 +77,9 @@ Manifest references:
 
 ### 2.2 Data pipelines
 
-- Whisper pipeline diagram: `docs/diagnostics/whisper_pipeline_flow.mmd`
-- Video pipeline diagram: `docs/diagnostics/video_pipeline_flow.mmd`
-- Streamer control lifecycle diagram: `docs/diagnostics/streamer_control_lifecycle.mmd`
+- Whisper pipeline diagnostics artifact: `docs/Agent Docs/diagnostics/pi_mic_streamer_diagnostic_2026-06-26.txt`
+- Video pipeline diagnostics artifact: `docs/Agent Docs/diagnostics/streamer_control_diagnostic_2026-06-26.md`
+- Streamer control RCA diagram: `docs/Agent Docs/root cause analysis/streamer_sequence_diagram_2026-06-26.mmd`
 
 ### 2.3 Active queues and timers
 
@@ -107,11 +114,11 @@ Manifest references: `processes`
 ### Pi streamer process notes
 
 - When started through GUI, stdout/stderr are redirected to:
-  - `/home/jorg/pibot/.run/mic_streamer.log`
-  - `/home/jorg/pibot/.run/video_streamer.log`
+  - `<PIBOT_PI_PROJECT_PATH>/.run/mic_streamer.log`
+  - `<PIBOT_PI_PROJECT_PATH>/.run/video_streamer.log`
 - PID files expected:
-  - `/home/jorg/pibot/.run/mic_streamer.pid`
-  - `/home/jorg/pibot/.run/video_streamer.pid`
+  - `<PIBOT_PI_PROJECT_PATH>/.run/mic_streamer.pid`
+  - `<PIBOT_PI_PROJECT_PATH>/.run/video_streamer.pid`
 
 ---
 
@@ -157,7 +164,7 @@ Log-location shorthand:
 | `pc/services/audio_receiver.py` | UDP audio ingest and downsample 48k->16k | UDP socket, numpy, scipy | bind failure on 5001; packet drops; queue full | GUI log box | confirm “Audio receiver listening”, RMS updates, packet timestamps | free UDP port, ensure Pi mic streamer active, reconnect |
 | `pc/services/whisper_service.py` | phrase detection + transcription + queue to LLM | whisper model, audio queue | model load/transcribe errors; no finalization | GUI log box | see “Whisper model ready”, partial/final transcript updates | check CPU load/audio threshold/silence timeout, restart connection |
 | `pc/services/ollama_service.py` | stream LLM response tokens | `requests`, Ollama HTTP | timeout/refused connection, stream parse issues | GUI log box + assistant output | startup check Ollama reachable; final transcript triggers output | fix Ollama endpoint/model and retry |
-| `pc/services/pi_streamer_manager.py` | SSH start/stop/status remote streamers | `ssh`, remote shell, pid files | ssh-failed, command timeout, stale pid file | GUI log box | Refresh status returns running/stopped | verify SSH auth/network; clear stale pid/log on Pi |
+| `pc/services/pi_streamer_manager.py` | SSH start/stop/status remote streamers | `ssh`, remote shell, pid files | transport/remote-command failures, timeout reconciliation, stale pid file | GUI log box | Refresh status returns running/stopped | verify SSH auth/network; clear stale pid/log on Pi |
 | `pc/services/startup_checks.py` | model/UDP/Ollama/target checks | filesystem, UDP bind probe, HTTP GET | false negatives if already connected; host mismatch | GUI check labels + log | Run Checks button updates 3 labels | align config, fix endpoint, rerun checks |
 | `pc/services/thread_monitor.py` | watchdog helper (currently unused) | thread callbacks | not active in current runtime | none in normal runtime | `rg ThreadMonitor` shows no use | integrate or ignore as inactive |
 | `pc/services/prompt_submission.py` | typed envelope for Whisper->LLM | dataclass | none | n/a | queue items are `PromptSubmission` with phrase_id/text | n/a |
@@ -208,7 +215,7 @@ Manifest references: `gui_controls`
 | Stop Listening | `stop_listening` | `pc/runtime_config.py` | Pauses segmentation; status “Listening paused” | still transcribing unexpectedly | verify status and queue clearing behavior |
 | Start Inference | `start_inference` | `pc/video/receiver_widget.py` | Enables YOLO overlay; model status updates | no detections / inference error | check model path and status messages |
 | Stop Inference | `stop_inference` | `pc/video/receiver_widget.py` | Disables YOLO but continues video display | still high inference load | verify model status “Inference disabled” |
-| Start Mic Streamer | `start_mic_streamer` | `pc/services/pi_streamer_manager.py` | SSH start Pi mic streamer; status should become running | ssh-failed/failed | inspect SSH connectivity and Pi logs |
+| Start Mic Streamer | `start_mic_streamer` | `pc/services/pi_streamer_manager.py` | SSH start Pi mic streamer; status should become running | `transport-failed` / `remote-command-failed` / `started-but-ack-failed` | inspect SSH connectivity and Pi logs |
 | Stop Mic Streamer | `stop_mic_streamer` | `pc/services/pi_streamer_manager.py` | SSH stop mic streamer; status stopped/already-stopped | stale running status | verify PID file/process alignment |
 | Start Video Streamer | `start_video_streamer` | `pc/services/pi_streamer_manager.py` | SSH start Pi video streamer; packets should appear on PC | started but no packets | check `PIBOT_PC_HOST` target and firewall |
 | Stop Video Streamer | `stop_video_streamer` | `pc/services/pi_streamer_manager.py` | SSH stop video streamer and remove pid file | process persists | manual kill on Pi and clear pid file |
@@ -226,14 +233,13 @@ Manifest references: `gui_controls`
 4. `PiStreamerManager.run_action()` builds remote shell command
 5. `subprocess.run(["ssh", "-o", "ConnectTimeout=8", "<user>@<pi>", "<cmd>"], timeout=20)`
 6. Remote Pi command:
-   - **start**: `nohup <venv>/bin/python pi/*_udp_streamer.py > .run/*_streamer.log 2>&1 &; echo $! > .run/*_streamer.pid; ...`
-   - **stop**: read pid, `kill`, remove pid file
-7. SSH output returned (`started`, `failed`, `stopped`, etc.)
-8. UI status label updated
-9. After 1s, app calls `refresh_streamer_status(streamer)` for acknowledgement
-10. `query_status()` checks pid file + `kill -0 pid` and updates final running/stopped state
+   - **start**: launches a short remote Python spawner that starts `pi/*_udp_streamer.py` with `stdin=DEVNULL`, `stdout/stderr` redirected to `.run/*_streamer.log`, `close_fds=True`, and `start_new_session=True`, then writes `.run/*_streamer.pid`.
+   - **stop**: reads pid, sends SIGTERM, polls, escalates to SIGKILL if needed, removes pid file only after confirmed death.
+7. SSH output is classified (`started`, `already-stopped`, `transport-failed`, `remote-command-failed`, `started-but-ack-failed`, or reconciled `started/status-confirmed-running`).
+8. Final streamer label ownership is refresh-driven: action worker requests `_request_streamer_refresh(...)`; refresh result is token-gated before UI apply.
+9. `query_status()` checks pid file + `kill -0 $pid` + `/proc/$pid/cmdline` script-name guard and updates final running/stopped state.
 
-Diagram: `docs/diagnostics/streamer_control_lifecycle.mmd`
+RCA diagram: `docs/Agent Docs/root cause analysis/streamer_sequence_diagram_2026-06-26.mmd`
 
 ---
 
@@ -286,7 +292,7 @@ Manifest references: `configuration` (33 entries)
 | `PIBOT_YOLO_MODEL_PATH` | YOLO model file path | `yolo26m.pt` | existing model path | `InferenceEngine`, startup model check | inference/model load errors |
 | `PIBOT_OLLAMA_URL` | Ollama generate endpoint | `http://localhost:11434/api/generate` | reachable HTTP URL | `OllamaService`, `StartupChecks` | startup check unreachable, LLM errors |
 | `PIBOT_OLLAMA_MODEL` | model name passed to Ollama | `llama3:instruct` | installed Ollama model name | `OllamaService` | stream error or empty responses |
-| `PIBOT_PI_HOST` | Pi SSH host | `192.168.0.38` | reachable host/IP | `PiStreamerManager` | streamer control ssh-failed |
+| `PIBOT_PI_HOST` | Pi SSH host | `192.168.0.38` | reachable host/IP | `PiStreamerManager` | streamer control `transport-failed` |
 | `PIBOT_PI_USER` | Pi SSH user | `jorg` | valid remote account | `PiStreamerManager` | permission/auth failures |
 | `PIBOT_PI_VENV_PATH` | remote venv root | `/home/jorg/venv` | path containing `bin/python` | `PiStreamerManager` start action | remote start fails (`python` not found) |
 | `PIBOT_PI_PROJECT_PATH` | remote project root | `/home/jorg/pibot` | valid path on Pi | PID/log paths, `cd` before run, status checks | PID/log files missing, start/stop/query mismatch |
@@ -524,8 +530,9 @@ Same stop semantics as video using mic pid/log files.
 
 ### 11.5 Common streamer-control failure modes
 
-- `ssh-failed`: host unreachable, auth failure, timeout
-- `failed`: remote command returned non-zero
+- `transport-failed`: host unreachable, auth failure, network transport failure
+- `remote-command-failed`: remote command returned explicit failure
+- `started-but-ack-failed`: start command timed out and follow-up status did not confirm running
 - `running` shown but no traffic: wrong `PIBOT_PC_HOST` target or blocked UDP
 - stale pid file points to dead process (query shows stopped)
 
@@ -536,7 +543,7 @@ Same stop semantics as video using mic pid/log files.
 3. Corresponding `.run/*.log` shows active loop output
 4. PC receives matching packet stream (audio or video)
 
-Diagram: `docs/diagnostics/streamer_control_lifecycle.mmd`
+RCA diagram: `docs/Agent Docs/root cause analysis/streamer_sequence_diagram_2026-06-26.mmd`
 
 ---
 
@@ -572,7 +579,8 @@ Regression coverage in repo:
 - `tests/test_whisper_service.py`
 - `tests/test_e2e_whisper_to_ollama.py`
 
-Diagram: `docs/diagnostics/whisper_pipeline_flow.mmd`
+Current diagnostics artifact: `docs/Agent Docs/diagnostics/pi_mic_streamer_diagnostic_2026-06-26.txt`  
+Historical diagram reference (legacy path label, not present in current snapshot): `docs/old - diagnostics/whisper_pipeline_flow.mmd`
 
 ---
 
@@ -602,7 +610,8 @@ Failure points and diagnostics:
 - model load/inference error -> status messages and no overlay
 - no heartbeat -> network state offline after ~2s
 
-Diagram: `docs/diagnostics/video_pipeline_flow.mmd`
+Current diagnostics artifact: `docs/Agent Docs/diagnostics/streamer_control_diagnostic_2026-06-26.md`  
+Historical diagram reference (legacy path label, not present in current snapshot): `docs/old - diagnostics/video_pipeline_flow.mmd`
 
 ---
 
@@ -610,11 +619,11 @@ Diagram: `docs/diagnostics/video_pipeline_flow.mmd`
 
 For each subsystem: PC commands, Pi commands, expected output, failure output, interpretation, recovery.
 
-> Use project venv where needed: `source /home/jorg/pibot/venv/bin/activate` (PC) or Pi venv path.
+> Use project venv where needed: `source "/home/jorg/pyderman/.venv/bin/activate"` (PC) or configured Pi venv path (`PIBOT_PI_VENV_PATH`).
 
 ### 14.1 GUI subsystem
 
-- **PC command:** `python3 /home/jorg/pibot/pc/client.py`
+- **PC command:** `python3 "/home/jorg/pyderman/pc/client.py"`
 - **Pi command:** N/A
 - **Expected:** GUI opens; status bar updates CPU/memory/network every second
 - **Failure:** traceback/import/tk errors
@@ -633,7 +642,7 @@ For each subsystem: PC commands, Pi commands, expected output, failure output, i
 ### 14.3 Video streaming (sender)
 
 - **PC command:** watch GUI packet/frame counters
-- **Pi command:** `python3 /home/jorg/pibot/pi/video_udp_streamer.py`
+- **Pi command:** `python3 "<PIBOT_PI_PROJECT_PATH>/pi/video_udp_streamer.py"`
 - **Expected:** periodic log lines with frames/fps and packet counts
 - **Failure:** camera initialization failed (synthetic fallback) or streamer errors
 - **Interpretation:** camera stack or network target issue
@@ -641,7 +650,7 @@ For each subsystem: PC commands, Pi commands, expected output, failure output, i
 
 ### 14.4 Video receiver
 
-- **PC command:** `python3 /home/jorg/pibot/pc/client.py` then Connect
+- **PC command:** `python3 "/home/jorg/pyderman/pc/client.py"` then Connect
 - **Pi command:** ensure video streamer running
 - **Expected:** `Video UDP packets detected`, FPS > 0, frame count increases
 - **Failure:** decode failures, no frames despite packets
@@ -651,7 +660,7 @@ For each subsystem: PC commands, Pi commands, expected output, failure output, i
 ### 14.5 Audio streaming
 
 - **PC command:** monitor logs for `Microphone activity` and audio meter updates
-- **Pi command:** `python3 /home/jorg/pibot/pi/mic_udp_streamer.py`
+- **Pi command:** `python3 "<PIBOT_PI_PROJECT_PATH>/pi/mic_udp_streamer.py"`
 - **Expected:** mic streamer startup line + PC packet and RMS activity
 - **Failure:** no packets, audio queue full warnings, idle mic state
 - **Interpretation:** capture, network, or queue pressure problem
@@ -659,7 +668,7 @@ For each subsystem: PC commands, Pi commands, expected output, failure output, i
 
 ### 14.6 Whisper
 
-- **PC command:** `python3 -m unittest /home/jorg/pibot/tests/test_whisper_service.py`
+- **PC command:** `python3 -m unittest "/home/jorg/pyderman/tests/test_whisper_service.py"`
 - **Pi command:** N/A
 - **Expected:** tests pass; logs show speech detect/end/final/submission flow
 - **Failure:** missing final transcript path, assertion failures
@@ -668,7 +677,7 @@ For each subsystem: PC commands, Pi commands, expected output, failure output, i
 
 ### 14.7 Speech pipeline E2E
 
-- **PC command:** `python3 -m unittest /home/jorg/pibot/tests/test_e2e_whisper_to_ollama.py`
+- **PC command:** `python3 -m unittest "/home/jorg/pyderman/tests/test_e2e_whisper_to_ollama.py"`
 - **Pi command:** N/A
 - **Expected:** phrase flows through partial->final->submission in tests
 - **Failure:** no submission, phrase ID/order mismatches
@@ -696,7 +705,7 @@ For each subsystem: PC commands, Pi commands, expected output, failure output, i
 ### 14.10 Camera
 
 - **PC command:** observe GUI video source behavior via logs
-- **Pi command:** `python3 /home/jorg/pibot/pi/video_udp_streamer.py` (look for camera init logs)
+- **Pi command:** `python3 "<PIBOT_PI_PROJECT_PATH>/pi/video_udp_streamer.py"` (look for camera init logs)
 - **Expected:** `Camera opened successfully` or explicit synthetic fallback warning
 - **Failure:** repeated camera init exceptions
 - **Interpretation:** camera device/driver unavailable
@@ -705,7 +714,7 @@ For each subsystem: PC commands, Pi commands, expected output, failure output, i
 ### 14.11 Microphone
 
 - **PC command:** monitor RMS and transcript status
-- **Pi command:** `python3 /home/jorg/pibot/pi/audio_diagnostics.py`
+- **Pi command:** `python3 "<PIBOT_PI_PROJECT_PATH>/pi/audio_diagnostics.py"`
 - **Expected:** RMS values above gate threshold during speech, manageable suppression count
 - **Failure:** very weak max RMS or mostly suppressed chunks
 - **Interpretation:** gain/device/noise-gate issue
@@ -714,7 +723,7 @@ For each subsystem: PC commands, Pi commands, expected output, failure output, i
 ### 14.12 Logging
 
 - **PC command:** compare logs tab with terminal output of PC app
-- **Pi command:** `tail -n 100 /home/jorg/pibot/.run/mic_streamer.log; tail -n 100 /home/jorg/pibot/.run/video_streamer.log`
+- **Pi command:** `tail -n 100 "<PIBOT_PI_PROJECT_PATH>/.run/mic_streamer.log"; tail -n 100 "<PIBOT_PI_PROJECT_PATH>/.run/video_streamer.log"`
 - **Expected:** active periodic diagnostics for running streamers
 - **Failure:** empty/stale logs
 - **Interpretation:** streamer not running or output redirected elsewhere
@@ -722,8 +731,8 @@ For each subsystem: PC commands, Pi commands, expected output, failure output, i
 
 ### 14.13 Configuration
 
-- **PC command:** `cat /home/jorg/pibot/pibot.env`
-- **Pi command:** `cat /home/jorg/pibot/pibot.env`
+- **PC command:** `cat "/home/jorg/pyderman/pibot.env"`
+- **Pi command:** `cat "<PIBOT_PI_PROJECT_PATH>/pibot.env"`
 - **Expected:** consistent host/port/model settings across environments
 - **Failure:** mismatched addresses/paths
 - **Interpretation:** sender-target mismatch or wrong remote execution paths
@@ -740,8 +749,8 @@ For each subsystem: PC commands, Pi commands, expected output, failure output, i
 
 ### 14.15 Remote PID management
 
-- **PC command:** `ssh <pi_user>@<pi_host> "ls -l /home/jorg/pibot/.run/*.pid 2>/dev/null || true"`
-- **Pi command:** `for f in /home/jorg/pibot/.run/*_streamer.pid; do [ -f \"$f\" ] && echo \"$f -> $(cat $f)\"; done`
+- **PC command:** `ssh <pi_user>@<pi_host> "ls -l <PIBOT_PI_PROJECT_PATH>/.run/*.pid 2>/dev/null || true"`
+- **Pi command:** `for f in <PIBOT_PI_PROJECT_PATH>/.run/*_streamer.pid; do [ -f \"$f\" ] && echo \"$f -> $(cat $f)\"; done`
 - **Expected:** pid files map to live processes
 - **Failure:** stale pid points to dead process
 - **Interpretation:** unclean shutdown or manual process kill

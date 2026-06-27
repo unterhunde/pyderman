@@ -1,7 +1,7 @@
 You are the Root Cause Analysis (RCA) Agent.
 
 Goal:
-Determine the exact cause of the remaining intermittent SSH reliability events and transient GUI status mismatches.
+Determine the exact cause of the remaining intermittent SSH reliability events and transient GUI status mismatches referenced in /docs/diagnotstics/diagnostics/results/e2e_runtime_validation_post_hardening_2026-06-26.md
 
 This is an investigation only.
 
@@ -85,6 +85,7 @@ Generate:
 1. Event timeline
 2. Sequence diagram
 3. Root cause report in /docs/diagnostics/Root Cause Analysis/
+
 
 Only after the evidence proves a single root cause should you recommend code changes.
 

@@ -21,4 +21,8 @@ Root Cause Analysis   ← new step
         ↓
 Implementation - Runtime Reliability Agent
         ↓
-Validation
+Validation - very similar to final valiation of first push, just need to add validation of the reliability agents work
+        ↓               an issue was identified of severity medium. RCA that bitch.
+Root Cause Analysis - issue identified in e2e_runtime_validation_post_hardening_2026-06-26
+        ↓
+Implementation - Runtime Reliability Agent - address issue in ssh_false_negative_reliability_fix_2026-06-2

@@ -17,8 +17,10 @@
 **Related Documents:**
 - `docs/System_Architecture_and_Interface_Control_Document.md`
 - `docs/System_Diagnostic_and_Troubleshooting_Guide.md`
-- `docs/diagnostics/streamer_control_lifecycle.mmd`  
+- `"docs/Agent Docs/root cause analysis/streamer_sequence_diagram_2026-06-26.mmd"`  
 **Assumptions:** SSH access to Pi at `jorg@192.168.0.38` was live during inspection. Pi project path is `/home/jorg/pibot`. No code was edited during this session.
+
+**Legacy environment note:** Paths under `/home/jorg/pibot` in this report are preserved as historical runtime evidence from the original diagnostic capture and are not the authoritative current repository root in this workspace.
 
 ---
 

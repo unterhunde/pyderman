@@ -2,10 +2,18 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import shlex
 import subprocess
 import threading
 import time
+
+
+@dataclass(frozen=True)
+class _SSHCommandResult:
+    status: str
+    returncode: int | None
+    output: str
 
 
 class PiStreamerManager:
@@ -34,10 +42,10 @@ class PiStreamerManager:
             f"fi"
         )
         result = self._run_ssh(remote_cmd, timeout=12)
-        if result is None:
+        if result.status != "ok":
             return False, "error: ssh-failed"
 
-        code, output = result
+        code, output = result.returncode, result.output
         if code != 0:
             return False, output or "unknown-error"
         if output == "running":
@@ -49,20 +57,43 @@ class PiStreamerManager:
         target_script = "pi/mic_udp_streamer.py" if streamer == "mic" else "pi/video_udp_streamer.py"
         pid_file = f"{self.settings.pi_project_path}/.run/{streamer}_streamer.pid"
         log_file = f"{self.settings.pi_project_path}/.run/{streamer}_streamer.log"
+        venv_python = f"{self.settings.pi_venv_path}/bin/python"
 
         if action == "start":
             # Poll up to 2 s (4 × 0.5 s) so slow-starting or slow-crashing streamers
             # have time to either stabilise or die before we report the outcome.
             # A 0.5 s single sleep was too short for the mic streamer's ALSA
             # enumeration path and could produce a false "started" result.
+            # The remote spawner explicitly detaches stdio/session and closes extra
+            # descriptors so the child streamer cannot keep the SSH transport alive.
+            launch_script = (
+                "import subprocess, sys; "
+                "log_path, target_script, python_bin = sys.argv[1:4]; "
+                "log_handle = open(log_path, 'ab', buffering=0); "
+                "proc = subprocess.Popen("
+                "[python_bin, target_script], "
+                "stdin=subprocess.DEVNULL, "
+                "stdout=log_handle, "
+                "stderr=subprocess.STDOUT, "
+                "close_fds=True, "
+                "start_new_session=True"
+                "); "
+                "print(proc.pid)"
+            )
+            q_project = shlex.quote(self.settings.pi_project_path)
+            q_launch_script = shlex.quote(launch_script)
+            q_log = shlex.quote(log_file)
+            q_target = shlex.quote(target_script)
+            q_venv_python = shlex.quote(venv_python)
+            q_pid_file = shlex.quote(pid_file)
             remote_cmd = (
-                f"cd {self.settings.pi_project_path} && "
-                f"nohup {self.settings.pi_venv_path}/bin/python {target_script} "
-                f"> {log_file} 2>&1 & "
-                f"echo $! > {pid_file}; "
-                f"for i in $(seq 1 4); do sleep 0.5; "
-                f"kill -0 $(cat {pid_file}) 2>/dev/null || break; done; "
-                f"kill -0 $(cat {pid_file}) 2>/dev/null && echo started || echo failed"
+                f"cd {q_project} && "
+                f"start_pid=$({q_venv_python} -c {q_launch_script} {q_log} {q_target} {q_venv_python}); "
+                f"if [ -n \"$start_pid\" ]; then "
+                f"echo \"$start_pid\" > {q_pid_file}; "
+                f"for i in $(seq 1 4); do sleep 0.5; kill -0 \"$start_pid\" 2>/dev/null || break; done; "
+                f"kill -0 \"$start_pid\" 2>/dev/null && echo started || echo failed; "
+                f"else echo failed; fi"
             )
         else:
             # Reliable stop: send SIGTERM, poll up to 3 s (10 × 0.3 s), escalate to
@@ -83,18 +114,29 @@ class PiStreamerManager:
             )
 
         result = self._run_ssh(remote_cmd, timeout=20)
-        if result is None:
-            return False, "ssh-failed"
-        code, output = result
+        if action == "start" and result.status == "timeout":
+            status_ok, status = self.query_status(streamer)
+            if status_ok and status == "running":
+                return True, "started/status-confirmed-running"
+            return False, "started-but-ack-failed"
+
+        if result.status != "ok":
+            return False, "transport-failed"
+
+        code, output = result.returncode, result.output
         if code != 0:
-            return False, output or "failed"
+            if self._is_transport_failure(code, output):
+                return False, "transport-failed"
+            return False, "remote-command-failed"
         # The remote shell always exits 0; inspect the output string to detect
         # explicit failure tokens echoed by the start or stop branches.
         if output in ("stop-failed", "failed"):
+            if action == "start":
+                return False, "remote-command-failed"
             return False, output
         return True, output or f"{action}ed"
 
-    def _run_ssh(self, remote_cmd: str, timeout: int) -> tuple[int, str] | None:
+    def _run_ssh(self, remote_cmd: str, timeout: int) -> _SSHCommandResult:
         """Execute SSH command with rate limiting to avoid overwhelming Pi.
         
         Rate limits concurrent SSH operations to prevent SSH connection exhaustion
@@ -112,13 +154,41 @@ class PiStreamerManager:
             cmd = ["ssh", "-o", "ConnectTimeout=8", ssh_target, remote_cmd]
             try:
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=False)
-            except subprocess.TimeoutExpired:
-                return None
-            except Exception:
-                return None
+            except subprocess.TimeoutExpired as exc:
+                output = (
+                    self._coerce_subprocess_text(exc.stdout).strip()
+                    or self._coerce_subprocess_text(exc.stderr).strip()
+                )
+                return _SSHCommandResult("timeout", None, output)
+            except OSError as exc:
+                return _SSHCommandResult("transport-failed", None, str(exc))
             finally:
                 self._last_ssh_time = time.time()
 
         output = (result.stdout or "").strip() or (result.stderr or "").strip()
-        return result.returncode, output
+        return _SSHCommandResult("ok", result.returncode, output)
 
+    @staticmethod
+    def _coerce_subprocess_text(value: str | bytes | None) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, bytes):
+            return value.decode(errors="replace")
+        return value
+
+    @staticmethod
+    def _is_transport_failure(returncode: int | None, output: str) -> bool:
+        if returncode == 255:
+            return True
+        error_text = output.lower()
+        transport_markers = (
+            "permission denied",
+            "could not resolve hostname",
+            "connection timed out",
+            "connection refused",
+            "connection reset",
+            "no route to host",
+            "network is unreachable",
+            "host key verification failed",
+        )
+        return any(marker in error_text for marker in transport_markers)

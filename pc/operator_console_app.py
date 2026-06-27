@@ -45,12 +45,17 @@ class OperatorConsoleApp:
         self.last_heartbeat_time = 0.0
         self.video_packet_count = 0
         self.video_frame_count = 0
+        # Worker threads must never read Tk variables directly; mirror the server
+        # entry into this lock-protected plain string for cross-thread reads.
         self._ollama_server_url_lock = threading.Lock()
         self._ollama_server_url = self.settings.ollama_url
         self._streamer_control_lock = threading.Lock()
+        # Action tokens implement "newest action wins" ownership for each streamer.
         self._streamer_action_tokens = {"mic": 0, "video": 0}
         self._streamer_pending_actions: dict[str, str | None] = {"mic": None, "video": None}
         self._streamer_action_worker_running = {"mic": False, "video": False}
+        # Refresh tokens gate status updates so older refresh results cannot overwrite
+        # state for a newer action.
         self._streamer_refresh_tokens = {"mic": 0, "video": 0}
         self._streamer_refresh_owner_action_token: dict[str, int | None] = {"mic": None, "video": None}
         self._streamer_refresh_worker_running = {"mic": False, "video": False}
@@ -827,6 +832,8 @@ class OperatorConsoleApp:
 
     def _run_streamer_action(self, streamer: str, action: str) -> None:
         with self._streamer_control_lock:
+            # Reserve a new generation before posting UI state so callbacks can
+            # cheaply reject stale writes for superseded actions.
             next_token = self._streamer_action_tokens[streamer] + 1
             self._streamer_action_tokens[streamer] = next_token
             self._streamer_pending_actions[streamer] = action
@@ -887,6 +894,8 @@ class OperatorConsoleApp:
 
     def _request_streamer_refresh(self, streamer: str, owner_action_token: int | None = None) -> None:
         with self._streamer_control_lock:
+            # Every refresh belongs to a specific action generation; this allows the
+            # UI apply phase to enforce single-owner status updates.
             next_refresh_token = self._streamer_refresh_tokens[streamer] + 1
             self._streamer_refresh_tokens[streamer] = next_refresh_token
             if owner_action_token is None:
@@ -965,6 +974,8 @@ class OperatorConsoleApp:
     ) -> None:
         def _apply_if_current() -> None:
             with self._streamer_control_lock:
+                # Apply only when refresh token and owning action token still match
+                # the latest known generation for this streamer.
                 latest_refresh_token = self._streamer_refresh_tokens[streamer]
                 latest_action_token = self._streamer_action_tokens[streamer]
                 latest_owner_action_token = self._streamer_refresh_owner_action_token[streamer]

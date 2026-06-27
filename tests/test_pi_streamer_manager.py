@@ -9,8 +9,9 @@ Covers:
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 
 class _Settings:
@@ -23,6 +24,10 @@ class _Settings:
 def _make_manager():
     from pc.services.pi_streamer_manager import PiStreamerManager
     return PiStreamerManager(_Settings())
+
+
+def _ssh_result(status="ok", returncode=0, output=""):
+    return SimpleNamespace(status=status, returncode=returncode, output=output)
 
 
 class TestQueryStatus(unittest.TestCase):
@@ -38,7 +43,7 @@ class TestQueryStatus(unittest.TestCase):
     def test_no_pid_file_reports_stopped(self):
         """When the Pi reports stopped (no PID file), result is (False, 'stopped')."""
         manager = _make_manager()
-        with patch.object(manager, "_run_ssh", return_value=(0, "stopped")):
+        with patch.object(manager, "_run_ssh", return_value=_ssh_result(output="stopped")):
             ok, status = manager.query_status("video")
         self.assertFalse(ok)
         self.assertEqual(status, "stopped")
@@ -47,7 +52,7 @@ class TestQueryStatus(unittest.TestCase):
         """Stale PID file whose process is dead: remote script echoes 'stopped'."""
         manager = _make_manager()
         # kill -0 $pid fails (dead) → remote script echoes stopped
-        with patch.object(manager, "_run_ssh", return_value=(0, "stopped")):
+        with patch.object(manager, "_run_ssh", return_value=_ssh_result(output="stopped")):
             ok, status = manager.query_status("video")
         self.assertFalse(ok)
         self.assertEqual(status, "stopped")
@@ -56,7 +61,7 @@ class TestQueryStatus(unittest.TestCase):
         """PID alive but cmdline does not contain the streamer name → stopped."""
         manager = _make_manager()
         # kill -0 succeeds but grep on cmdline fails → remote script echoes stopped
-        with patch.object(manager, "_run_ssh", return_value=(0, "stopped")):
+        with patch.object(manager, "_run_ssh", return_value=_ssh_result(output="stopped")):
             ok, status = manager.query_status("video")
         self.assertFalse(ok)
         self.assertEqual(status, "stopped")
@@ -64,7 +69,7 @@ class TestQueryStatus(unittest.TestCase):
     def test_live_streamer_reports_running(self):
         """Live streamer with matching cmdline reports running."""
         manager = _make_manager()
-        with patch.object(manager, "_run_ssh", return_value=(0, "running")):
+        with patch.object(manager, "_run_ssh", return_value=_ssh_result(output="running")):
             ok, status = manager.query_status("video")
         self.assertTrue(ok)
         self.assertEqual(status, "running")
@@ -72,7 +77,7 @@ class TestQueryStatus(unittest.TestCase):
     def test_ssh_failure_reports_error(self):
         """SSH failure (None) returns (False, 'error: ssh-failed')."""
         manager = _make_manager()
-        with patch.object(manager, "_run_ssh", return_value=None):
+        with patch.object(manager, "_run_ssh", return_value=_ssh_result(status="timeout")):
             ok, status = manager.query_status("mic")
         self.assertFalse(ok)
         self.assertIn("ssh-failed", status)
@@ -84,7 +89,7 @@ class TestQueryStatus(unittest.TestCase):
 
         def capture(cmd, timeout):
             captured.append(cmd)
-            return (0, "stopped")
+            return _ssh_result(output="stopped")
 
         with patch.object(manager, "_run_ssh", side_effect=capture):
             manager.query_status("video")
@@ -102,7 +107,7 @@ class TestRunActionStop(unittest.TestCase):
     def test_stop_success_when_process_dies(self):
         """Stop returns (True, 'stopped') when the process dies normally."""
         manager = _make_manager()
-        with patch.object(manager, "_run_ssh", return_value=(0, "stopped")):
+        with patch.object(manager, "_run_ssh", return_value=_ssh_result(output="stopped")):
             ok, status = manager.run_action("video", "stop")
         self.assertTrue(ok)
         self.assertEqual(status, "stopped")
@@ -110,7 +115,7 @@ class TestRunActionStop(unittest.TestCase):
     def test_stop_already_stopped(self):
         """Stop returns success for 'already-stopped' (no PID file present)."""
         manager = _make_manager()
-        with patch.object(manager, "_run_ssh", return_value=(0, "already-stopped")):
+        with patch.object(manager, "_run_ssh", return_value=_ssh_result(output="already-stopped")):
             ok, status = manager.run_action("video", "stop")
         self.assertTrue(ok)
         self.assertEqual(status, "already-stopped")
@@ -119,7 +124,7 @@ class TestRunActionStop(unittest.TestCase):
         """Stop returns (False, 'stop-failed') when process survives SIGKILL."""
         manager = _make_manager()
         # Remote script echoes stop-failed when kill -0 still succeeds after SIGKILL
-        with patch.object(manager, "_run_ssh", return_value=(0, "stop-failed")):
+        with patch.object(manager, "_run_ssh", return_value=_ssh_result(output="stop-failed")):
             ok, status = manager.run_action("video", "stop")
         self.assertFalse(ok,
             "run_action must not report success when process survives SIGKILL")
@@ -132,7 +137,7 @@ class TestRunActionStop(unittest.TestCase):
 
         def capture(cmd, timeout):
             captured.append(cmd)
-            return (0, "stopped")
+            return _ssh_result(output="stopped")
 
         with patch.object(manager, "_run_ssh", side_effect=capture):
             manager.run_action("video", "stop")
@@ -156,7 +161,7 @@ class TestRunActionStop(unittest.TestCase):
 
         def capture(cmd, timeout):
             captured.append(cmd)
-            return (0, "stopped")
+            return _ssh_result(output="stopped")
 
         with patch.object(manager, "_run_ssh", side_effect=capture):
             manager.run_action("video", "stop")
@@ -176,7 +181,7 @@ class TestRunActionStart(unittest.TestCase):
     def test_start_success(self):
         """Start returns (True, 'started') when process is alive after health check."""
         manager = _make_manager()
-        with patch.object(manager, "_run_ssh", return_value=(0, "started")):
+        with patch.object(manager, "_run_ssh", return_value=_ssh_result(output="started")):
             ok, status = manager.run_action("video", "start")
         self.assertTrue(ok)
         self.assertEqual(status, "started")
@@ -185,11 +190,11 @@ class TestRunActionStart(unittest.TestCase):
         """Start returns (False, 'failed') when process dies before health check completes."""
         manager = _make_manager()
         # Remote polling loop detects the process has died → echoes failed
-        with patch.object(manager, "_run_ssh", return_value=(0, "failed")):
+        with patch.object(manager, "_run_ssh", return_value=_ssh_result(output="failed")):
             ok, status = manager.run_action("mic", "start")
         self.assertFalse(ok,
             "run_action must not report success if process exits during the health window")
-        self.assertEqual(status, "failed")
+        self.assertEqual(status, "remote-command-failed")
 
     def test_start_command_uses_polling_loop_not_single_sleep(self):
         """Verify start command uses a polling loop, not a fixed single sleep."""
@@ -198,7 +203,7 @@ class TestRunActionStart(unittest.TestCase):
 
         def capture(cmd, timeout):
             captured.append(cmd)
-            return (0, "started")
+            return _ssh_result(output="started")
 
         with patch.object(manager, "_run_ssh", side_effect=capture):
             manager.run_action("video", "start")
@@ -222,7 +227,7 @@ class TestRunActionStart(unittest.TestCase):
 
         def capture(cmd, timeout):
             captured.append(cmd)
-            return (0, "started")
+            return _ssh_result(output="started")
 
         with patch.object(manager, "_run_ssh", side_effect=capture):
             manager.run_action("mic", "start")
@@ -233,6 +238,57 @@ class TestRunActionStart(unittest.TestCase):
             "start polling loop must run 4 iterations for a 2 s window")
         self.assertIn("sleep 0.5", cmd,
             "start polling loop must use 0.5 s sleep intervals")
+
+    def test_start_command_detaches_stdio_and_extra_descriptors(self):
+        """Start command launches with DEVNULL/stdout-stderr redirection and closed extra FDs."""
+        manager = _make_manager()
+        captured = []
+
+        def capture(cmd, timeout):
+            captured.append(cmd)
+            return _ssh_result(output="started")
+
+        with patch.object(manager, "_run_ssh", side_effect=capture):
+            manager.run_action("mic", "start")
+
+        cmd = captured[0]
+        self.assertIn("stdin=subprocess.DEVNULL", cmd)
+        self.assertIn("stderr=subprocess.STDOUT", cmd)
+        self.assertIn("close_fds=True", cmd)
+        self.assertIn("start_new_session=True", cmd)
+        self.assertIn(".run/mic_streamer.pid", cmd)
+        self.assertIn(".run/mic_streamer.log", cmd)
+
+    def test_start_timeout_with_confirmed_running_returns_successful_reconciliation(self):
+        manager = _make_manager()
+        with (
+            patch.object(manager, "_run_ssh", return_value=_ssh_result(status="timeout")),
+            patch.object(manager, "query_status", return_value=(True, "running")),
+        ):
+            ok, status = manager.run_action("mic", "start")
+        self.assertTrue(ok)
+        self.assertEqual(status, "started/status-confirmed-running")
+
+    def test_start_timeout_without_running_status_returns_failure(self):
+        manager = _make_manager()
+        with (
+            patch.object(manager, "_run_ssh", return_value=_ssh_result(status="timeout")),
+            patch.object(manager, "query_status", return_value=(False, "stopped")),
+        ):
+            ok, status = manager.run_action("video", "start")
+        self.assertFalse(ok)
+        self.assertEqual(status, "started-but-ack-failed")
+
+    def test_start_nonzero_ssh_failure_remains_failure(self):
+        manager = _make_manager()
+        with patch.object(
+            manager,
+            "_run_ssh",
+            return_value=_ssh_result(returncode=255, output="Permission denied (publickey)."),
+        ):
+            ok, status = manager.run_action("video", "start")
+        self.assertFalse(ok)
+        self.assertEqual(status, "transport-failed")
 
 
 if __name__ == "__main__":

@@ -6,14 +6,30 @@
 - **Purpose:** Define the current PiBot runtime architecture, interfaces, module responsibilities, and integration behavior.
 - **Last Updated:** 2026-06-26
 - **Source Prompt:** User request: "update all files in /docs/ to be compliant with the attached file"
-- **Source Documents Used:** `docs/json/prompt_header.json`, `docs/Prompt_Header.md`, `docs/json/system_manifest.json`
-- **Source Implementation Analyzed:** `docs/`
-- **Related Documents:** `docs/json/prompt_header.json`, `docs/Prompt_Header.md`, `docs/json/system_manifest.json`, `docs/System_Diagnostic_and_Troubleshooting_Guide.md`
-- **Assumptions:** Compliance is satisfied by including the required fields defined in `docs/json/prompt_header.json` under `documentation_generation_rules.required_fields`.
+- **Source Documents Used:** `"docs/Agent Docs/implementation/"`, `"docs/Agent Docs/diagnostics/"`, `"docs/Agent Docs/validation/"`, `"docs/Agent Docs/root cause analysis/"`, `"docs/Agent Docs/checkpoints/"`
+- **Source Implementation Analyzed:** `pc/`, `pi/`, `tests/`, `pibot_config.py`
+- **Related Documents:** `docs/System_Diagnostic_and_Troubleshooting_Guide.md`, `"docs/Agent Docs/implementation/"`, `"docs/Agent Docs/diagnostics/"`, `"docs/Agent Docs/validation/"`, `"docs/Agent Docs/root cause analysis/"`, `"docs/Agent Docs/checkpoints/"`
+- **Assumptions:** Current operational documentation is sourced from active records under `docs/Agent Docs/`; historical references to legacy JSON locations (for example `docs/old-json/`) are non-authoritative and legacy only.
 - **Revision History:**
   - 2026-06-26: Added Prompt Header compliance metadata block.
+  - 2026-06-26: Updated documentation path references to current `docs/Agent Docs/` structure and marked legacy paths as retired.
 
 This document describes the repository as it exists now. Where implementation differs from prior audit notes or apparent intent, the implementation below is the source of truth.
+
+## Documentation Directory Status (Current vs Legacy)
+
+- Active agent documentation is under `"docs/Agent Docs/"`.
+- Implementation records are under `"docs/Agent Docs/implementation/"`.
+- Diagnostics results are stored under `"docs/Agent Docs/diagnostics/"`.
+- Validation reports are stored under `"docs/Agent Docs/validation/"`.
+- Checkpoints live under `"docs/Agent Docs/checkpoints/"` (directory verified in this repository snapshot).
+- RCA reports live under `"docs/Agent Docs/root cause analysis/"` if present.
+
+### Retired / Legacy Documentation
+
+- `docs/old-json/` is retained only for historical reference and must not be used as the current manifest source (Legacy label; no corresponding directory is present in this repository snapshot).
+- `docs/Agent Docs/old-diagnostics/` is retained only for historical reference and must not be used as the current diagnostics source (Legacy label; no corresponding directory is present in this repository snapshot).
+- New agents should prefer current files under `docs/Agent Docs/`.
 
 ## 1. Executive Summary
 
@@ -43,7 +59,7 @@ Major capabilities currently implemented:
 ### Root layout
 
 ```text
-/home/jorg/pibot
+/home/jorg/pyderman
   - .editorconfig
   - pibot_config.py
   - pibot.env
@@ -68,7 +84,7 @@ Major capabilities currently implemented:
 | `tests/` | Unit and end-to-end tests for Whisper and Ollama flow. |
 | `.vscode/` | VS Code workspace settings and SFTP deployment config. |
 | `.run/` | Runtime PID/log location used by Pi streamer startup scripts and SSH status checks. |
-| `docs/` | Generated architecture documentation, including this SAICD and the machine-readable manifest. |
+| `docs/` | Active documentation under `docs/Agent Docs/`; legacy references such as `docs/old-json/` and `docs/Agent Docs/old-diagnostics/` are historical labels and not current active sources. |
 
 ### Shallow tree of significant source files
 
@@ -287,7 +303,7 @@ Speech processing is fully on the PC:
 | UDP video chunk stream | Carry JPEG frame chunks to PC. | `pi.video.streamer.UDPVideoStreamer` | `pc.video.receiver_widget.UDPVideoReceiver` | UDP | `CHUNK_HEADER (!IHH)` + JPEG chunk | Frame reassembly and render | Incomplete frame buffers are pruned; corrupt frames are dropped. | Poll interval 15 ms; no explicit resend. |
 | UDP heartbeat stream | Mark Pi video liveness. | `pi.video.streamer.UDPVideoStreamer` | `pc.video.receiver_widget.UDPVideoReceiver` | UDP | `HEARTBEAT_PACKET (!BQ)` | Updates heartbeat timestamp | If absent, UI may mark network offline after ~2 s. | Heartbeat every 500 ms. |
 | Ollama generate API | Stream LLM output. | `pc.services.ollama_service.OllamaService` | Ollama server | HTTP POST | JSON `{model,prompt,stream:true}` | Line-delimited JSON stream containing `response` tokens and `done` | On error, GUI shows `[Ollama error]`. | Request timeout 120 s; no retry. |
-| SSH streamer control | Start/stop/query Pi streamer scripts. | `pc.services.pi_streamer_manager.PiStreamerManager` | Raspberry Pi SSH daemon | SSH | Remote shell command string | `started`, `stopped`, `running`, `stopped`, or error text | Returns `ssh-failed`/`failed` on timeout or nonzero exit. | SSH connect timeout 8 s; command timeout 12/20 s; no retry. |
+| SSH streamer control | Start/stop/query Pi streamer scripts. | `pc.services.pi_streamer_manager.PiStreamerManager` | Raspberry Pi SSH daemon | SSH | Remote shell command string | `started`, `already-stopped`, `running`, `stopped`, or classified failure text | Returns classified failures (`transport-failed`, `remote-command-failed`, `started-but-ack-failed`) and reconciles timeout starts against `query_status()`. | SSH connect timeout 8 s; command timeout 12/20 s; no retry. |
 | Whisper model interface | Convert queued audio chunks into text. | `pc.services.whisper_service.WhisperService` | `whisper` package | In-process model API | `np.ndarray` float32 audio | Dict containing `text` | Logs exception and returns empty string. | Model loaded lazily; no retry loop. |
 | YOLO model interface | Decode and annotate video frames. | `pc.video.inference_engine.InferenceEngine` | `ultralytics.YOLO` | In-process model API | JPEG bytes -> frame -> YOLO results | Annotated RGB frame and detection stats | Exceptions bubble to receiver status callbacks. | Model loaded lazily on first inference. |
 | Picamera2 camera interface | Capture camera frames on Pi. | `pi.video.frame_source.open_camera()` | Pi camera hardware | Picamera2 API | RGB frames | `picamera2` or `None` | Falls back to synthetic video source. | No retry loop. |
@@ -633,7 +649,7 @@ The Pi entrypoints:
 - `WhisperService._transcribe()` logs exceptions and returns empty text.
 - `OllamaService.run()` logs exceptions and appends `[Ollama error]`.
 - `StartupChecks.check_ollama()` treats any exception as unreachable.
-- `PiStreamerManager._run_ssh()` returns `None` on timeout or subprocess exceptions.
+- `PiStreamerManager._run_ssh()` returns a classified `_SSHCommandResult` (`ok`, `timeout`, or `transport-failed`) used by `run_action()` and `query_status()`.
 - `UDPVideoReceiver._render_worker()` converts decode/model failures into status text.
 
 ### Retries / automatic recovery
