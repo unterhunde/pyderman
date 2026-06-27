@@ -1,53 +1,23 @@
 ---
-description: "Always-on documentation maintenance directive for all tasks in this workspace"
+description: "Repository-wide PiBot engineering bootstrap directive."
 applyTo: "**"
 ---
 
 <!-- Tip: Use /create-instructions in chat to generate content with agent assistance -->
+# Engineering Directive
 
----
+This repository is under active development. Treat documentation and engineering records as part of the project.
 
-description: "Repository-wide engineering and documentation standards."
-applyTo: "**"
--------------
+For tasks that affect project behavior, architecture, validation status, documentation, or engineering workflow, read `"docs/AI Engineering Framework/project_state.json"` first. Use it to identify the current phase and relevant engineering artifacts.
 
-# PiBot Engineering Directive
+## Core Rules
 
-This repository is under active development. Treat documentation as part of the implementation.
-
-## General Rules
-
-* Do not assume documentation is correct. Validate it against the current implementation.
-* Keep architecture, implementation, diagnostics, validation, and project-state documentation synchronized with implementation changes.
-* Preserve existing document structure whenever practical. Extend documentation rather than replacing it.
-* Prefer updating existing documents over creating new ones.
-* Maintain cross-references between related documents instead of duplicating information.
-* Treat historical documentation as reference only; do not restore or promote legacy artifacts without explicit instruction.
-* Use the current repository structure as the source of truth.
-
-## Documentation Requirements
-
-When documentation is created or substantially updated, include:
-
-* Title
-* Purpose
-* Last Updated
-* Source Prompt
-* Source Documents Used
-* Source Implementation Analyzed
-* Related Documents
-* Assumptions
-* Revision History
-
-When helpful, prefer tables, diagrams, indexes, and cross-references over duplicated prose.
-
-## Completion Criteria
-
-A task is not complete until any affected documentation has been updated or the reason it was intentionally left unchanged has been documented.
-
-When finished, report:
-
-* Code files modified
-* Documentation modified
-* New documentation created
-* Manual follow-up recommendations
+* Treat the current implementation and direct runtime evidence as authoritative when they conflict with documentation.
+* Follow the applicable standards in `"docs/AI Engineering Framework/"`.
+* Modify only files and documentation materially affected by the assigned task.
+* Preserve known-good behavior and avoid unrelated refactoring or repository cleanup.
+* Prefer updating the established authoritative document over creating a competing source of truth.
+* Do not rewrite completed engineering records to reflect later events; create a new record and cross-reference the earlier one.
+* Treat historical and legacy artifacts as reference only unless explicitly instructed otherwise.
+* Use the current repository structure and repository-relative paths.
+* Do not update `"docs/AI Engineering Framework/project_state.json"` unless the task explicitly authorizes it or the applicable lifecycle phase assigns that responsibility.

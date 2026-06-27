@@ -1,0 +1,96 @@
+{
+"schema_version": "1.0",
+"project": {
+"name": "PiBot",
+"status": "stable_checkpoint",
+"current_phase": "runtime_hardening_and_pi_signal_quality",
+"last_updated": "2026-06-26"
+},
+"checkpoint": {
+"id": "runtime_stabilization_2026-06-26",
+"commit_ready": true,
+"report": "docs/Agent Docs/checkpoints/checkpoint_runtime_stabilization_2026-06-26.md"
+},
+"latest_artifacts": {
+"architecture": "docs/System_Architecture_and_Interface_Control_Document.md",
+"troubleshooting": "docs/System_Diagnostic_and_Troubleshooting_Guide.md",
+"validation": "docs/Agent Docs/validation/e2e_runtime_validation_ssh_false_negative_2026-06-26_22-27-00.md",
+"implementation": "docs/Agent Docs/implementation/ssh_false_negative_reliability_fix_2026-06-26.md",
+"root_cause_analysis": "docs/Agent Docs/root cause analysis/ssh_false_negative_rca_2026-06-26.md"
+},
+"validated_capabilities": [
+"PC GUI launches and connects",
+"Mic streamer starts and stops through GUI controls",
+"Video streamer starts and stops through GUI controls",
+"UDP audio reaches the PC",
+"UDP video and heartbeat reach the PC",
+"Whisper produces partial and final transcripts",
+"Final transcripts are submitted to Ollama",
+"Assistant output streams into the GUI",
+"YOLO inference can be enabled and disabled without stopping video",
+"Streamer GUI state converges to confirmed Pi process state",
+"SSH start false-negatives are resolved"
+],
+"known_issues": [
+{
+"id": "AUDIO-001",
+"severity": "low",
+"status": "open",
+"title": "Microphone and AGC calibration",
+"recommended_owner": "Pi Audio Diagnostic Agent"
+},
+{
+"id": "AUDIO-002",
+"severity": "low",
+"status": "open",
+"title": "Pi audio hardware handling refinement",
+"recommended_owner": "Runtime Reliability Agent"
+},
+{
+"id": "VIDEO-001",
+"severity": "low",
+"status": "open",
+"title": "Intermittent camera fallback to synthetic source",
+"recommended_owner": "Pi Video Diagnostic Agent"
+},
+{
+"id": "VIDEO-002",
+"severity": "low",
+"status": "open",
+"title": "UDP incomplete-frame loss during startup bursts",
+"recommended_owner": "Performance Analysis Agent"
+},
+{
+"id": "SPEECH-001",
+"severity": "low",
+"status": "open",
+"title": "Transcript fidelity and phrase segmentation tuning",
+"recommended_owner": "Pi Audio Diagnostic Agent"
+}
+],
+"next_step": {
+"recommended_agent": "Documentation Steward and Project Hygiene Agent",
+"objective": "Complete documentation synchronization and commit the stable runtime checkpoint.",
+"after_checkpoint": "Begin Pi microphone, AGC, and hardware calibration."
+},
+"framework": {
+"documentation_standard": "docs/AI Engineering Framework/Documentation_Standards.md",
+"prompt_standard": "docs/AI Engineering Framework/Prompt_Standards.md",
+"report_standard": "docs/AI Engineering Framework/Report_Standards.md"
+},
+"ownership": {
+"project_state_owner": "Documentation Steward and Project Hygiene Agent",
+"update_events": [
+"checkpoint created",
+"project phase changed",
+"known issue added, closed, or reprioritized",
+"latest engineering artifact changed",
+"commit readiness changed"
+]
+},
+"notes": [
+"The current implementation is authoritative when documentation conflicts with code.",
+"Detailed evidence belongs in engineering reports, not in this file.",
+"Historical artifacts must not be treated as current sources of truth."
+]
+}
