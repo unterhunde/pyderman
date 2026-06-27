@@ -47,6 +47,13 @@ class OperatorConsoleApp:
         self.video_frame_count = 0
         self._ollama_server_url_lock = threading.Lock()
         self._ollama_server_url = self.settings.ollama_url
+        self._streamer_control_lock = threading.Lock()
+        self._streamer_action_tokens = {"mic": 0, "video": 0}
+        self._streamer_pending_actions: dict[str, str | None] = {"mic": None, "video": None}
+        self._streamer_action_worker_running = {"mic": False, "video": False}
+        self._streamer_refresh_tokens = {"mic": 0, "video": 0}
+        self._streamer_refresh_owner_action_token: dict[str, int | None] = {"mic": None, "video": None}
+        self._streamer_refresh_worker_running = {"mic": False, "video": False}
 
         self.audio_receiver: AudioReceiverService | None = None
         self.whisper_worker: WhisperService | None = None
@@ -813,56 +820,163 @@ class OperatorConsoleApp:
     def refresh_streamer_status(self, streamer: str | None = None) -> None:
         """Refresh streamer status. If streamer specified, only query that one."""
         if streamer is None:
-            # Query both
-            self._post_ui(self.mic_streamer_status.configure, text="Checking...", style="Warn.TLabel")
-            self._post_ui(self.video_streamer_status.configure, text="Checking...", style="Warn.TLabel")
-        elif streamer == "mic":
-            self._post_ui(self.mic_streamer_status.configure, text="Checking...", style="Warn.TLabel")
-        elif streamer == "video":
-            self._post_ui(self.video_streamer_status.configure, text="Checking...", style="Warn.TLabel")
-        threading.Thread(target=self._refresh_streamer_status_worker, args=(streamer,), daemon=True).start()
-
-    def _refresh_streamer_status_worker(self, streamer: str | None = None) -> None:
-        """Query streamer status. If streamer is None, query both."""
-        streamers_to_check = [streamer] if streamer else ["mic", "video"]
-        statuses = {}
-        
-        for s in streamers_to_check:
-            statuses[s] = self.streamer_manager.query_status(s)
-        
-        for s, (ok, text) in statuses.items():
-            widget = self.mic_streamer_status if s == "mic" else self.video_streamer_status
-            style = "StatusValue.TLabel" if ok else "Warn.TLabel"
-            self._post_ui(widget.configure, text=text, style=style)
-        
-        self.logger.info(
-            "Streamer status | mic=%s | video=%s",
-            statuses.get("mic", (False, "not-queried"))[1],
-            statuses.get("video", (False, "not-queried"))[1],
-        )
+            self._request_streamer_refresh("mic")
+            self._request_streamer_refresh("video")
+            return
+        self._request_streamer_refresh(streamer)
 
     def _run_streamer_action(self, streamer: str, action: str) -> None:
-        status_widget = self.mic_streamer_status if streamer == "mic" else self.video_streamer_status
-        status_widget.configure(text=f"{action.title()}ing...", style="Warn.TLabel")
-        self.logger.info(f"User clicked {streamer} streamer {action} button")
-        threading.Thread(target=self._streamer_action_worker, args=(streamer, action), daemon=True).start()
+        with self._streamer_control_lock:
+            next_token = self._streamer_action_tokens[streamer] + 1
+            self._streamer_action_tokens[streamer] = next_token
+            self._streamer_pending_actions[streamer] = action
+            worker_running = self._streamer_action_worker_running[streamer]
+            if not worker_running:
+                self._streamer_action_worker_running[streamer] = True
+        self._post_streamer_action_status(
+            streamer,
+            token=next_token,
+            text=f"{action.title()}ing...",
+            style="Warn.TLabel",
+        )
+        self.logger.info("User clicked %s streamer %s button (token=%s)", streamer, action, next_token)
+        if not worker_running:
+            threading.Thread(target=self._streamer_action_worker, args=(streamer,), daemon=True).start()
 
-    def _streamer_action_worker(self, streamer: str, action: str) -> None:
-        status_widget = self.mic_streamer_status if streamer == "mic" else self.video_streamer_status
-        self.logger.info(f"Executing {action} on {streamer} streamer...")
-        ok, output = self.streamer_manager.run_action(streamer=streamer, action=action)
-        self.logger.info(f"{streamer} streamer {action} result: ok={ok}, output={output}")
-        if ok:
-            self._post_ui(status_widget.configure, text=output or f"{action.title()}ed", style="StatusValue.TLabel")
-            self.logger.info("%s streamer %s success: %s", streamer, action, output or "ok")
-            # Add 1-second delay to allow process to stabilize before status check
-            time.sleep(1.0)
-            # Only query the streamer we just modified, not both
-            self._post_ui(self.refresh_streamer_status, streamer)
-            return
+    def _streamer_action_worker(self, streamer: str) -> None:
+        while True:
+            with self._streamer_control_lock:
+                action = self._streamer_pending_actions[streamer]
+                action_token = self._streamer_action_tokens[streamer]
+                self._streamer_pending_actions[streamer] = None
+            if action is None:
+                with self._streamer_control_lock:
+                    self._streamer_action_worker_running[streamer] = False
+                    if self._streamer_pending_actions[streamer] is not None:
+                        self._streamer_action_worker_running[streamer] = True
+                        continue
+                return
 
-        self._post_ui(status_widget.configure, text=output or "failed", style="Danger.TLabel")
-        self.logger.error("%s streamer %s failed: %s", streamer, action, output or "unknown error")
+            self.logger.info("Executing %s on %s streamer (token=%s)...", action, streamer, action_token)
+            ok, output = self.streamer_manager.run_action(streamer=streamer, action=action)
+            self.logger.info("%s streamer %s result (token=%s): ok=%s, output=%s", streamer, action, action_token, ok, output)
+
+            with self._streamer_control_lock:
+                is_latest = action_token == self._streamer_action_tokens[streamer]
+            if not is_latest:
+                self.logger.info(
+                    "Discarding stale %s %s result (token=%s, latest=%s)",
+                    streamer,
+                    action,
+                    action_token,
+                    self._streamer_action_tokens[streamer],
+                )
+                continue
+
+            if not ok:
+                self.logger.warning(
+                    "%s streamer %s failed (token=%s): %s. Confirming actual Pi state.",
+                    streamer,
+                    action,
+                    action_token,
+                    output or "unknown error",
+                )
+
+            # Always confirm real Pi state after an action result.
+            self._request_streamer_refresh(streamer, owner_action_token=action_token)
+
+    def _request_streamer_refresh(self, streamer: str, owner_action_token: int | None = None) -> None:
+        with self._streamer_control_lock:
+            next_refresh_token = self._streamer_refresh_tokens[streamer] + 1
+            self._streamer_refresh_tokens[streamer] = next_refresh_token
+            if owner_action_token is None:
+                owner_action_token = self._streamer_action_tokens[streamer]
+            self._streamer_refresh_owner_action_token[streamer] = owner_action_token
+            refresh_worker_running = self._streamer_refresh_worker_running[streamer]
+            if not refresh_worker_running:
+                self._streamer_refresh_worker_running[streamer] = True
+        self._post_streamer_refresh_status(
+            streamer,
+            refresh_token=next_refresh_token,
+            owner_action_token=owner_action_token,
+            text="Checking...",
+            style="Warn.TLabel",
+        )
+        self.logger.info(
+            "Queued %s streamer status refresh (refresh_token=%s, owner_action_token=%s)",
+            streamer,
+            next_refresh_token,
+            owner_action_token,
+        )
+        if not refresh_worker_running:
+            threading.Thread(target=self._refresh_streamer_status_worker, args=(streamer,), daemon=True).start()
+
+    def _refresh_streamer_status_worker(self, streamer: str) -> None:
+        while True:
+            with self._streamer_control_lock:
+                refresh_token = self._streamer_refresh_tokens[streamer]
+                owner_action_token = self._streamer_refresh_owner_action_token[streamer]
+
+            ok, text = self.streamer_manager.query_status(streamer)
+            style = "StatusValue.TLabel" if ok else "Warn.TLabel"
+            self._post_streamer_refresh_status(
+                streamer,
+                refresh_token=refresh_token,
+                owner_action_token=owner_action_token,
+                text=text,
+                style=style,
+            )
+
+            self.logger.info(
+                "Streamer status | %s=%s | refresh_token=%s | owner_action_token=%s",
+                streamer,
+                text,
+                refresh_token,
+                owner_action_token,
+            )
+
+            with self._streamer_control_lock:
+                latest_refresh_token = self._streamer_refresh_tokens[streamer]
+                if refresh_token == latest_refresh_token:
+                    self._streamer_refresh_worker_running[streamer] = False
+                    if latest_refresh_token == self._streamer_refresh_tokens[streamer]:
+                        return
+                    self._streamer_refresh_worker_running[streamer] = True
+
+    def _get_streamer_status_widget(self, streamer: str) -> ttk.Label:
+        return self.mic_streamer_status if streamer == "mic" else self.video_streamer_status
+
+    def _post_streamer_action_status(self, streamer: str, token: int, text: str, style: str) -> None:
+        def _apply_if_current() -> None:
+            with self._streamer_control_lock:
+                if token != self._streamer_action_tokens[streamer]:
+                    return
+            self._get_streamer_status_widget(streamer).configure(text=text, style=style)
+
+        self._post_ui(_apply_if_current)
+
+    def _post_streamer_refresh_status(
+        self,
+        streamer: str,
+        refresh_token: int,
+        owner_action_token: int | None,
+        text: str,
+        style: str,
+    ) -> None:
+        def _apply_if_current() -> None:
+            with self._streamer_control_lock:
+                latest_refresh_token = self._streamer_refresh_tokens[streamer]
+                latest_action_token = self._streamer_action_tokens[streamer]
+                latest_owner_action_token = self._streamer_refresh_owner_action_token[streamer]
+                if refresh_token != latest_refresh_token:
+                    return
+                if owner_action_token != latest_owner_action_token:
+                    return
+                if owner_action_token != latest_action_token:
+                    return
+            self._get_streamer_status_widget(streamer).configure(text=text, style=style)
+
+        self._post_ui(_apply_if_current)
 
     def _on_threshold_change(self, _value: str) -> None:
         self.config.set_threshold(float(self.threshold_var.get()))
