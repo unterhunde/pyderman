@@ -73,6 +73,22 @@ Determine current microphone signal quality and identify calibration values for 
    - Stage C: louder speech at ~2 ft
 6. Run additional 10-second channel check for left vs right raw RMS dominance.
 
+## Evidence
+
+- Pi runtime/config inspection outputs:
+  - `pibot.env` values (host/port/sample-rate alignment)
+  - `arecord -l`
+  - `amixer get Capture`
+  - `amixer get Master`
+  - PyAudio device inventory + selected device output
+- Stage capture outputs:
+  - `PI_STAGE` JSON metrics for silence, normal speech, loud speech
+  - `UDP_STAGE` continuity metrics for each stage
+- Additional channel evidence:
+  - `CHANNEL_CHECK` JSON (left vs right RMS behavior)
+- Failure evidence:
+  - transient `ValueError: Invalid audio channels` during one loud-stage run; successful retry recorded
+
 ## Measured Baseline Values
 
 ### Runtime/device facts
@@ -159,6 +175,20 @@ Apply as a controlled calibration patch (not during this diagnostic run):
 - **UDP stream active during testing?** **Pass** (expected packet rate and active continuity in each stage).
 - **Recommendations derived from measurements?** **Pass** (all values tied to captured RMS/gain/gate distributions).
 
+## Pass / Fail Matrix
+
+| Test | Result | Notes |
+|---|---|---|
+| Active microphone device selected and usable on Pi | PASS | Google voiceHAT card selected at index 0 and used for captures. |
+| Silence baseline captured with measurable RMS | PASS | Raw and processed RMS distributions captured for 10s silence stage. |
+| Normal speech (~2 ft) captured with measurable RMS/peaks | PASS | Stage metrics captured; no clipping observed. |
+| Louder speech captured with measurable RMS/peaks | PASS | Stage metrics captured after retry; no clipping observed. |
+| Sustained clipping during normal/loud speech absent | PASS | Clip chunk/sample ratios remained zero in measured runs. |
+| Silence and speech clearly separable for segmentation | FAIL | Processed silence RMS p50 exceeded speech p50 values. |
+| AGC behavior stable and quality-preserving | FAIL | Gain median remained high (~21–26x) with noise-floor amplification. |
+| Noise gate behavior aligned with speech capture | FAIL | Gate active for ~31–34% of speech-stage chunks. |
+| UDP delivery active during tests | PASS | Expected packet cadence maintained; no sustained dropout in active windows. |
+
 ## Temporary Changes
 
 - No repository code/config files were permanently modified.
@@ -186,6 +216,10 @@ Implement the above calibration values in a narrow change set, then run a follow
 2. normal speech at ~2 ft remains non-clipping,
 3. gate activation during speech is reduced,
 4. segmentation threshold can be set from measured post-calibration distributions.
+
+## Recommended Next Prompt
+
+Implement and validate a minimal calibration patch for `pi/audio/config.py` (`NOISE_GATE_RMS`, `TARGET_RMS`, `MAX_GAIN`, `AGC_ATTACK`, `AGC_RELEASE`) and run the same three-stage measurement protocol to confirm speech/silence separation at ~2 feet before any further audio-pipeline changes.
 
 ## Checkpoint Recommendation
 
