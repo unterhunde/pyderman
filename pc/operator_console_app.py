@@ -13,6 +13,7 @@ from tkinter import scrolledtext, ttk
 
 import numpy as np
 
+from pc.gui.calibration_wizard_panel import CalibrationWizardPanel
 from pc.logging_utils import GuiLogHandler
 from pc.runtime_config import RuntimeConfig
 from pc.services.audio_receiver import AudioReceiverService
@@ -213,18 +214,21 @@ class OperatorConsoleApp:
         inference_tab = ttk.Frame(notebook, style="Panel.TFrame", padding=10)
         streamers_tab = ttk.Frame(notebook, style="Panel.TFrame", padding=10)
         audio_tab = ttk.Frame(notebook, style="Panel.TFrame", padding=10)
+        calibration_tab = ttk.Frame(notebook, style="Panel.TFrame", padding=10)
         logs_tab = ttk.Frame(notebook, style="Panel.TFrame", padding=10)
 
         notebook.add(whisper_tab, text="Whisper")
         notebook.add(inference_tab, text="Inference")
         notebook.add(streamers_tab, text="Streamers")
         notebook.add(audio_tab, text="Audio")
+        notebook.add(calibration_tab, text="Calibration")
         notebook.add(logs_tab, text="Logs")
 
         self._build_whisper_tab(whisper_tab)
         self._build_inference_tab(inference_tab)
         self._build_streamers_tab(streamers_tab)
         self._build_audio_tab(audio_tab)
+        self._build_calibration_tab(calibration_tab)
         self._build_logs_tab(logs_tab)
 
     def _build_whisper_tab(self, whisper: ttk.Frame) -> None:
@@ -349,6 +353,12 @@ class OperatorConsoleApp:
             font=("Consolas", 9),
         )
         self.log_box.grid(row=0, column=0, sticky="nsew")
+
+    def _build_calibration_tab(self, calibration_tab: ttk.Frame) -> None:
+        calibration_tab.grid_columnconfigure(0, weight=1)
+        calibration_tab.grid_rowconfigure(0, weight=1)
+        self.calibration_wizard_panel = CalibrationWizardPanel(calibration_tab, self.root, logger=self.logger)
+        self.calibration_wizard_panel.grid(row=0, column=0, sticky="nsew")
 
     def _build_center_panel(self) -> None:
         ttk.Label(self.center_panel, text="Live Video Preview + Inference Overlay", style="Header.TLabel").grid(
