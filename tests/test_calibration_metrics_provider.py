@@ -10,6 +10,15 @@ from pc.services.calibration_metrics_provider import (
 
 
 class TestSimulatedCalibrationMetricsProvider(unittest.TestCase):
+    def test_metadata_exposes_simulation_source_designation(self):
+        provider = SimulatedCalibrationMetricsProvider()
+        metadata = provider.metadata()
+        self.assertEqual(metadata.mode, "simulation")
+        self.assertTrue(metadata.is_simulated)
+        self.assertIn("SIMULATION MODE", metadata.simulation_warning)
+        self.assertIn("not production microphone calibration values", metadata.simulation_warning)
+        self.assertEqual(metadata.source_label, "deterministic-simulated-provider")
+
     def test_contract_returns_stage_metrics_fields(self):
         provider = SimulatedCalibrationMetricsProvider()
         metrics = provider.capture(MeasurementStage.NORMAL, attempt=1, capture_seconds=4)

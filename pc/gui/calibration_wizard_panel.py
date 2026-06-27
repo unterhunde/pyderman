@@ -15,6 +15,17 @@ from pc.services.calibration_session_controller import (
 )
 
 
+def _format_stage_result_line(stage_name: str, metrics, *, simulated: bool) -> str:
+    stage_label = stage_name
+    if simulated:
+        stage_label = f"{stage_label} (SIMULATED)"
+    return (
+        f"{stage_label}: raw={metrics.raw_rms:.4f}, proc={metrics.processed_rms:.4f}, "
+        f"peak={metrics.peak:.3f}, clip={metrics.clipping:.3f}, gate={metrics.gate_ratio:.3f}, "
+        f"agc={metrics.agc_gain:.3f}, success={metrics.capture_success}"
+    )
+
+
 class _TkAfterScheduler(WizardScheduler):
     def __init__(self, root: tk.Misc) -> None:
         self._root = root
@@ -59,6 +70,14 @@ class CalibrationWizardPanel(ttk.Frame):
         self.progress_label.grid(row=0, column=1, sticky="e")
         self.progress_bar = ttk.Progressbar(header, orient="horizontal", mode="determinate", maximum=7, value=0)
         self.progress_bar.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        self.simulation_banner_value = ttk.Label(
+            header,
+            text="",
+            style="Danger.TLabel",
+            wraplength=760,
+            justify="left",
+        )
+        self.simulation_banner_value.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(8, 0))
 
         stage = ttk.LabelFrame(self, text="Operator Cues", padding=10)
         stage.grid(row=1, column=0, sticky="ew", pady=(10, 0))
@@ -110,6 +129,8 @@ class CalibrationWizardPanel(ttk.Frame):
             command=self._toggle_drawer,
         )
         self.toggle_drawer_btn.grid(row=0, column=0, sticky="w")
+        self.diagnostics_mode_value = ttk.Label(diagnostics, text="", style="Danger.TLabel", wraplength=760, justify="left")
+        self.diagnostics_mode_value.grid(row=0, column=1, sticky="e")
         self.drawer = ttk.Frame(diagnostics, style="Panel.TFrame")
         self.drawer.grid(row=1, column=0, sticky="ew", pady=(8, 0))
         self.drawer.grid_columnconfigure(1, weight=1)
@@ -165,8 +186,14 @@ class CalibrationWizardPanel(ttk.Frame):
         self._invoke(self._controller.close)
 
     def _apply_view_state(self, view_state: CalibrationWizardViewState) -> None:
+        self.simulation_banner_value.configure(
+            text=view_state.simulation_warning if view_state.simulation_mode else "",
+        )
         self.stage_name_value.configure(text=view_state.stage_name)
-        self.instruction_value.configure(text=view_state.instruction)
+        instruction = view_state.instruction
+        if view_state.simulation_mode:
+            instruction = f"{instruction} [Simulated]"
+        self.instruction_value.configure(text=instruction)
         cue_style = "Warn.TLabel"
         if view_state.cue == "start":
             cue_style = "StatusValue.TLabel"
@@ -177,6 +204,12 @@ class CalibrationWizardPanel(ttk.Frame):
         self.status_message_value.configure(text=view_state.status_message)
         self.progress_bar.configure(maximum=max(view_state.progress_total, 1), value=view_state.progress_current)
         self.progress_label.configure(text=f"Progress: {view_state.progress_current}/{view_state.progress_total}")
+        if view_state.simulation_mode:
+            self.diagnostics_mode_value.configure(
+                text=f"Diagnostics source: SIMULATED ({view_state.provider_source_label})",
+            )
+        else:
+            self.diagnostics_mode_value.configure(text=f"Diagnostics source: {view_state.provider_source_label}")
 
         self.start_btn.state(["!disabled"] if view_state.state.value in {"IDLE", "COMPLETE", "FAILED", "CANCELLED"} else ["disabled"])
         self.start_stage_btn.state(["!disabled"] if view_state.can_start and view_state.state.value not in {"IDLE"} else ["disabled"])
@@ -189,15 +222,14 @@ class CalibrationWizardPanel(ttk.Frame):
             lines = []
             for stage, metrics in view_state.stage_results.items():
                 lines.append(
-                    (
-                        f"{stage.value.title()}: raw={metrics.raw_rms:.4f}, proc={metrics.processed_rms:.4f}, "
-                        f"peak={metrics.peak:.3f}, clip={metrics.clipping:.3f}, gate={metrics.gate_ratio:.3f}, "
-                        f"agc={metrics.agc_gain:.3f}, success={metrics.capture_success}"
-                    )
+                    _format_stage_result_line(stage.value.title(), metrics, simulated=view_state.simulation_mode),
                 )
             self.results_value.configure(text="\n".join(lines))
         else:
-            self.results_value.configure(text="No captures yet.")
+            empty_message = "No captures yet."
+            if view_state.simulation_mode:
+                empty_message = "No simulated captures yet."
+            self.results_value.configure(text=empty_message)
 
         latest = view_state.latest_metrics
         if latest is None:
@@ -210,4 +242,7 @@ class CalibrationWizardPanel(ttk.Frame):
         self._diag_labels["clipping"].configure(text=f"{latest.clipping:.4f}")
         self._diag_labels["gate_ratio"].configure(text=f"{latest.gate_ratio:.4f}")
         self._diag_labels["agc_gain"].configure(text=f"{latest.agc_gain:.4f}")
-        self._diag_labels["capture_success"].configure(text="yes" if latest.capture_success else "no")
+        success_text = "yes" if latest.capture_success else "no"
+        if view_state.simulation_mode:
+            success_text = f"{success_text} (simulated)"
+        self._diag_labels["capture_success"].configure(text=success_text)

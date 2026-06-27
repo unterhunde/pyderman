@@ -1,7 +1,15 @@
 You are the Documentation Steward and Project Hygiene Agent.
 
 Goal:
-Prepare PiBot for a stable checkpoint commit by auditing, synchronizing, and updating the project documentation so it accurately reflects the current implementation and repository layout after the latest successful end-to-end validation.
+Updating the project documentation so it accurately reflects the current implementation and repository layout after the latest successful end-to-end validation.
+
+At this point, project_state.json should still keep AUDIO-001 open, but it can now record:
+
+Phase A: complete and validated
+SIM-UI-001: closed
+next agent: Runtime Implementation Agent
+next objective: Phase B telemetry integration
+latest validation: this report
 
 The current repository organization is intentional.
 
@@ -17,11 +25,6 @@ Treat the following as the authoritative documentation locations:
 * "docs/Agent Docs/validation/"
 * "docs/Agent Docs/root cause analysis/"
 * "docs/Agent Docs/checkpoints/"
-
-Treat the following as historical references only:
-
-* "docs/old-json/"
-* "docs/Agent Docs/old-diagnostics/"
 
 Important:
 Repository paths contain spaces. Quote paths in shell commands and documentation examples.

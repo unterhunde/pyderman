@@ -55,6 +55,8 @@ class _FakeScheduler:
 
 
 class TestCalibrationSessionController(unittest.TestCase):
+    _EXPECTED_WARNING = "SIMULATION MODE — Results are test data and are not production microphone calibration values."
+
     def _make_controller(
         self,
         *,
@@ -76,6 +78,12 @@ class TestCalibrationSessionController(unittest.TestCase):
     def _run_stage_capture(self, controller: CalibrationSessionController, scheduler: _FakeScheduler) -> None:
         controller.start_stage()
         scheduler.run_all()
+
+    def _assert_simulation_fields(self, view_state: CalibrationWizardViewState) -> None:
+        self.assertTrue(view_state.simulation_mode)
+        self.assertEqual(view_state.provider_mode, "simulation")
+        self.assertEqual(view_state.provider_source_label, "deterministic-simulated-provider")
+        self.assertEqual(view_state.simulation_warning, self._EXPECTED_WARNING)
 
     def test_valid_state_transition_path_to_complete_with_phrase(self):
         controller, scheduler, updates = self._make_controller(phrase_enabled=True)
@@ -172,6 +180,50 @@ class TestCalibrationSessionController(unittest.TestCase):
         controller.next_step()
         self._run_stage_capture(controller, scheduler)
         self.assertEqual(updates[-1].state, CalibrationWizardState.FAILED)
+
+    def test_view_state_communicates_simulation_mode(self):
+        controller, _, updates = self._make_controller()
+        controller.start_wizard()
+        for update in updates:
+            self._assert_simulation_fields(update)
+
+    def test_simulation_warning_persists_through_complete_workflow(self):
+        controller, scheduler, updates = self._make_controller(phrase_enabled=True)
+        controller.start_wizard()
+        controller.next_step()
+        controller.next_step()
+        self._run_stage_capture(controller, scheduler)
+        controller.next_step()
+        self._run_stage_capture(controller, scheduler)
+        controller.next_step()
+        self._run_stage_capture(controller, scheduler)
+        controller.next_step()
+        self._run_stage_capture(controller, scheduler)
+        controller.next_step()
+        controller.next_step()
+        self.assertEqual(updates[-1].state, CalibrationWizardState.COMPLETE)
+        for update in updates:
+            self._assert_simulation_fields(update)
+
+    def test_simulation_warning_persists_in_failed_and_cancelled_states(self):
+        controller, scheduler, updates = self._make_controller(
+            failed_attempts={MeasurementStage.SILENCE: {1}},
+        )
+        controller.start_wizard()
+        controller.next_step()
+        controller.next_step()
+        self._run_stage_capture(controller, scheduler)
+        self.assertEqual(updates[-1].state, CalibrationWizardState.FAILED)
+        self._assert_simulation_fields(updates[-1])
+
+        controller.start_wizard()
+        controller.next_step()
+        controller.next_step()
+        controller.start_stage()
+        scheduler.advance(500)
+        controller.cancel()
+        self.assertEqual(updates[-1].state, CalibrationWizardState.CANCELLED)
+        self._assert_simulation_fields(updates[-1])
 
 
 if __name__ == "__main__":

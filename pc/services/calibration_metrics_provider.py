@@ -25,7 +25,18 @@ class StageMetrics:
     capture_success: bool
 
 
+@dataclass(frozen=True)
+class CalibrationProviderMetadata:
+    mode: str
+    source_label: str
+    is_simulated: bool
+    simulation_warning: str
+
+
 class CalibrationMetricsProvider(Protocol):
+    def metadata(self) -> CalibrationProviderMetadata:
+        """Describe provider source/mode/capability metadata for UI labeling."""
+
     def capture(self, stage: MeasurementStage, attempt: int, capture_seconds: int) -> StageMetrics:
         """Capture one deterministic metrics window for a wizard stage."""
 
@@ -42,6 +53,16 @@ class SimulatedCalibrationMetricsProvider:
 
     def __init__(self, failed_attempts: dict[MeasurementStage, set[int]] | None = None) -> None:
         self._failed_attempts = failed_attempts or {}
+
+    def metadata(self) -> CalibrationProviderMetadata:
+        return CalibrationProviderMetadata(
+            mode="simulation",
+            source_label="deterministic-simulated-provider",
+            is_simulated=True,
+            simulation_warning=(
+                "SIMULATION MODE — Results are test data and are not production microphone calibration values."
+            ),
+        )
 
     def capture(self, stage: MeasurementStage, attempt: int, capture_seconds: int) -> StageMetrics:
         base = self._BASELINES[stage]

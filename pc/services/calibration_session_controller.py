@@ -8,6 +8,7 @@ from typing import Callable, Protocol
 
 from pc.services.calibration_metrics_provider import (
     CalibrationMetricsProvider,
+    CalibrationProviderMetadata,
     MeasurementStage,
     StageMetrics,
 )
@@ -61,6 +62,10 @@ class CalibrationWizardViewState:
     status_message: str
     stage_results: dict[MeasurementStage, StageMetrics]
     latest_metrics: StageMetrics | None
+    provider_mode: str
+    provider_source_label: str
+    simulation_mode: bool
+    simulation_warning: str
 
 
 _PREPARE_STATE_BY_STAGE = {
@@ -93,6 +98,7 @@ class CalibrationSessionController:
         phrase_enabled: bool = True,
     ) -> None:
         self._metrics_provider = metrics_provider
+        self._provider_metadata: CalibrationProviderMetadata = metrics_provider.metadata()
         self._scheduler = scheduler
         self._on_update = on_update
         self._prepare_seconds = prepare_seconds
@@ -134,7 +140,7 @@ class CalibrationSessionController:
         self._set_state(
             CalibrationWizardState.VERIFYING,
             cue="prepare",
-            message="Verify device connection and microphone availability, then click Next.",
+            message="Verify device connection and microphone availability, then click Next (simulation mode).",
         )
 
     def start_stage(self) -> None:
@@ -158,7 +164,7 @@ class CalibrationSessionController:
             self._set_state(
                 CalibrationWizardState.PREVIEW,
                 cue="prepare",
-                message="Preview microphone activity. Confirm signal is visible, then click Next.",
+                message="Preview microphone activity. Confirm signal is visible, then click Next (simulated data path).",
             )
             return
         if self._state == CalibrationWizardState.PREVIEW:
@@ -248,7 +254,7 @@ class CalibrationSessionController:
         self._set_state(
             CalibrationWizardState.COMPARE,
             cue="stop",
-            message="Review stage metrics and continue when ready.",
+            message="Review simulated stage metrics and continue when ready.",
         )
 
     def _schedule_prepare_tick(self, stage: MeasurementStage, token: int, remaining: int) -> None:
@@ -320,7 +326,7 @@ class CalibrationSessionController:
             )
             return
         self._stage_results[stage] = metrics
-        self._status_message = f"STOP. {stage.value.title()} capture complete."
+        self._status_message = f"STOP. {stage.value.title()} capture complete (simulated metrics)."
         self._publish()
 
     def _token_current(self, token: int) -> bool:
@@ -391,13 +397,13 @@ class CalibrationSessionController:
         if self._state in _STAGE_BY_CAPTURE_STATE:
             return "Follow the START cue and stop immediately when STOP is shown."
         if self._state == CalibrationWizardState.COMPARE:
-            return "Review the results summary and diagnostics before completing the wizard."
+            return "Review simulated results and diagnostics before completing this non-production wizard run."
         if self._state == CalibrationWizardState.COMPLETE:
-            return "Phase A shell complete. Close to return to idle."
+            return "Phase A simulation run complete. These results are test-only and not production calibration."
         if self._state == CalibrationWizardState.CANCELLED:
-            return "Calibration cancelled. No runtime configuration changes were applied."
+            return "Calibration cancelled. Simulation mode remained active; no runtime configuration changes were applied."
         if self._state == CalibrationWizardState.FAILED:
-            return "Capture failed. Repeat the stage or restart the wizard."
+            return "Simulated capture failed. Repeat the stage or restart the wizard."
         return ""
 
     def _publish(self) -> None:
@@ -435,5 +441,9 @@ class CalibrationSessionController:
                 status_message=self._status_message,
                 stage_results=dict(self._stage_results),
                 latest_metrics=self._latest_metrics,
+                provider_mode=self._provider_metadata.mode,
+                provider_source_label=self._provider_metadata.source_label,
+                simulation_mode=self._provider_metadata.is_simulated,
+                simulation_warning=self._provider_metadata.simulation_warning,
             )
         )

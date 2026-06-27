@@ -23,7 +23,7 @@
 "Mic streamer starts and stops through GUI controls",
 "Video streamer starts and stops through GUI controls",
 "UDP audio reaches the PC",
-"UDP video and heartbeat reach the PC",
+"UDP video and heartbeatSIM-UI-001 reach the PC",
 "Whisper produces partial and final transcripts",
 "Final transcripts are submitted to Ollama",
 "Assistant output streams into the GUI",
