@@ -115,6 +115,8 @@ class PiStreamerManager:
 
         result = self._run_ssh(remote_cmd, timeout=20)
         if action == "start" and result.status == "timeout":
+            # A timeout can still mean success if the remote child detached and kept
+            # running; reconcile against authoritative remote status before failing.
             status_ok, status = self.query_status(streamer)
             if status_ok and status == "running":
                 return True, "started/status-confirmed-running"

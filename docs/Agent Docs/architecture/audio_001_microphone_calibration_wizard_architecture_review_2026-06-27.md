@@ -16,7 +16,7 @@
   - `docs/AI Engineering Framework/Documentation_Standards.md`
   - `docs/Agent Docs/diagnostics/audio_001_mic_agc_calibration_diagnostic_2026-06-27.md`
   - `docs/Agent Docs/diagnostics/audio_001_live_room_followup_validation_2026-06-27.md`
-  - `docs/prompts/agents/Stable Commit Cleanup/System_Architecture_and_Interface_Control_Document.md`
+  - `docs/System_Architecture_and_Interface_Control_Document.md`
 - **Related Implementation:**
   - `pc/operator_console_app.py`
   - `pc/runtime_config.py`

@@ -865,6 +865,8 @@ class OperatorConsoleApp:
             with self._streamer_control_lock:
                 action = self._streamer_pending_actions[streamer]
                 action_token = self._streamer_action_tokens[streamer]
+                # Pending action and token are captured together so execution and
+                # later UI application stay in the same generation.
                 self._streamer_pending_actions[streamer] = None
             if action is None:
                 with self._streamer_control_lock:
@@ -935,6 +937,8 @@ class OperatorConsoleApp:
             with self._streamer_control_lock:
                 refresh_token = self._streamer_refresh_tokens[streamer]
                 owner_action_token = self._streamer_refresh_owner_action_token[streamer]
+                # Snapshot both tokens once per query so result application can
+                # enforce refresh-token + owner-action-token synchronization.
 
             ok, text = self.streamer_manager.query_status(streamer)
             style = "StatusValue.TLabel" if ok else "Warn.TLabel"

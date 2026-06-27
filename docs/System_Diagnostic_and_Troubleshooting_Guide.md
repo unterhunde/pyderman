@@ -4,17 +4,21 @@
 
 - **Title:** PiBot System Diagnostic & Troubleshooting Guide
 - **Purpose:** Provide operational diagnostics, troubleshooting workflows, and runtime failure-mode guidance for PiBot.
-- **Last Updated:** 2026-06-26
-- **Source Prompt:** User request: "update all files in /docs/ to be compliant with the attached file"
+- **Last Updated:** 2026-06-27
+- **Source Prompt:** Documentation Steward synchronization after successful Phase A revalidation.
 - **Source Documents Used:** `"docs/Agent Docs/implementation/"`, `"docs/Agent Docs/diagnostics/"`, `"docs/Agent Docs/validation/"`, `"docs/Agent Docs/root cause analysis/"`, `"docs/Agent Docs/checkpoints/"`
 - **Source Implementation Analyzed:** `pc/`, `pi/`, `tests/`, `pibot_config.py`
 - **Related Documents:** `docs/System_Architecture_and_Interface_Control_Document.md`, `"docs/Agent Docs/implementation/"`, `"docs/Agent Docs/diagnostics/"`, `"docs/Agent Docs/validation/"`, `"docs/Agent Docs/root cause analysis/"`, `"docs/Agent Docs/checkpoints/"`, and historical diagram path labels (for example `docs/old - diagnostics/*.mmd`, not present in this snapshot)
+- **Latest Implementation Evidence:** `"docs/Agent Docs/implementation/audio_001_sim_ui_001_phase_a_calibration_wizard_simulation_label_fix_2026-06-27.md"`
+- **Latest Validation Evidence:** `"docs/Agent Docs/validation/audio_001_phase_a_calibration_wizard_revalidation_sim_ui_001_2026-06-27.md"`
+- **Latest Checkpoint Evidence:** `"docs/Agent Docs/checkpoints/checkpoint_audio_001_phase_a_validation_2026-06-27.md"`
 - **Assumptions:** Active troubleshooting artifacts are maintained under `docs/Agent Docs/`; historical JSON and diagnostics path labels are legacy reference only and are not authoritative active sources.
 - **Revision History:**
+  - 2026-06-27: Synchronized workflow routing, latest validation/implementation references, and Phase A status context.
   - 2026-06-26: Added Prompt Header compliance metadata block.
   - 2026-06-26: Updated active documentation references to `docs/Agent Docs/` and retired legacy paths.
 
-Last updated: 2026-06-26  
+Last updated: 2026-06-27  
 Primary index: `"docs/Agent Docs/"`
 
 ## Retired / Legacy Documentation
@@ -22,6 +26,14 @@ Primary index: `"docs/Agent Docs/"`
 - `docs/old-json/` is retained only for historical reference and must not be used as the current manifest source (Legacy label; no corresponding directory is present in this repository snapshot).
 - `docs/Agent Docs/old-diagnostics/` is retained only for historical reference and must not be used as the current diagnostics source (Legacy label; no corresponding directory is present in this repository snapshot).
 - New agents should prefer current files under `docs/Agent Docs/`.
+
+## Workflow Alignment (Troubleshooting <-> SAICD)
+
+- **Implementation workflow:** implementers publish records under `"docs/Agent Docs/implementation/"`; troubleshooting uses the latest implementation record as the change baseline.
+- **Diagnostic workflow:** runtime investigations and symptom captures are stored under `"docs/Agent Docs/diagnostics/"`.
+- **Validation workflow:** acceptance and regression outcomes are stored under `"docs/Agent Docs/validation/"`; this guide defers pass/fail authority to the latest validation report.
+- **Root-cause workflow:** unresolved mechanisms route to `"docs/Agent Docs/root cause analysis/"`.
+- **Checkpoint workflow:** transition summaries are published under `"docs/Agent Docs/checkpoints/"` and reflected in `docs/AI Engineering Framework/project_state.json`.
 
 ## 1) Purpose, Scope, and Method
 
@@ -79,6 +91,7 @@ Manifest references:
 
 - Whisper pipeline diagnostics artifact: `docs/Agent Docs/diagnostics/pi_mic_streamer_diagnostic_2026-06-26.txt`
 - Video pipeline diagnostics artifact: `docs/Agent Docs/diagnostics/streamer_control_diagnostic_2026-06-26.md`
+- Calibration diagnostics artifacts: `"docs/Agent Docs/diagnostics/audio_001_mic_agc_calibration_diagnostic_2026-06-27.md"` and `"docs/Agent Docs/diagnostics/audio_001_live_room_followup_validation_2026-06-27.md"`
 - Streamer control RCA diagram: `docs/Agent Docs/root cause analysis/streamer_sequence_diagram_2026-06-26.mmd`
 
 ### 2.3 Active queues and timers
@@ -156,7 +169,7 @@ Log-location shorthand:
 
 | Module | Purpose | Key dependencies | Common failures | Log locations | Verification procedure | Recovery procedure |
 |---|---|---|---|---|---|---|
-| `pibot_config.py` | Load env/config into `AppSettings` | env vars, `pibot.env`, `Path` | wrong host/port/model path; bad int parse silently falls to default | indirect in GUI checks | Run startup checks; print loaded settings in REPL | Fix `pibot.env` or env vars and restart process |
+| `pibot_config.py` | Load env/config into `AppSettings` | env vars, optional env file label `pibot.env`, `Path` | wrong host/port/model path; bad int parse silently falls to default | indirect in GUI checks | Run startup checks; print loaded settings in REPL | Fix env-file path/env vars and restart process |
 | `pc/client.py` | PC composition root | Tkinter, `OperatorConsoleApp`, `load_settings` | launch failure, import errors | PC stdout | `python3 pc/client.py` opens GUI | fix venv/deps, ensure project root imports resolve |
 | `pc/runtime_config.py` | Thread-safe runtime toggles | `threading.Lock` | stale toggles if UI not updating | GUI state widgets | Toggle controls and observe behavior changes | reconnect app if state appears desynced |
 | `pc/logging_utils.py` | Pipe logs into GUI queue | `logging.Handler`, `queue.Queue` | dropped logs if queue full | GUI log box, PC stdout | Generate logs and confirm logs tab updates | reduce log volume or restart app |
@@ -280,9 +293,11 @@ Manifest references: `configuration` (33 entries)
 
 ### 9.1 Environment-backed app settings (`pibot_config.py`)
 
+Note: `pibot.env` is a default label used by configuration loading; it may be absent in repository snapshots when environment variables or alternate `PIBOT_CONFIG_FILE` paths are used.
+
 | Key | Meaning | Default | Valid values | Consumed by | Incorrect-config symptoms |
 |---|---|---|---|---|---|
-| `PIBOT_CONFIG_FILE` | env file path | `pibot.env` | readable file path | `pibot_config.load_settings` | wrong or missing settings loaded |
+| `PIBOT_CONFIG_FILE` | env file path | `pibot.env` (default label; file may be absent) | readable file path | `pibot_config.load_settings` | wrong or missing settings loaded |
 | `PIBOT_UDP_BIND_HOST` | PC UDP bind address | `0.0.0.0` | host/IP local to PC | `AudioReceiverService`, `UDPVideoReceiver`, `StartupChecks` | bind failures or listeners on wrong interface |
 | `PIBOT_PC_HOST` | destination host for Pi streamers | `192.168.0.189` | reachable PC IP/hostname from Pi | `UDPMicStreamer`, `UDPVideoStreamer`, startup alignment check | streamers run but PC receives no packets |
 | `PIBOT_UDP_AUDIO_PORT` | UDP audio port | `5001` | free UDP port 1..65535 | Pi mic sender + PC audio receiver + checks | audio bind conflicts / no ingress |
@@ -474,8 +489,8 @@ Each subsystem includes: symptoms, likely causes, files/modules/threads/processe
 ### 10.13 Configuration
 
 - **Symptoms:** startup checks fail; streamers launch but no data; wrong endpoints
-- **Likely causes:** stale `pibot.env`, mixed env override values, invalid paths
-- **Files/modules:** `pibot_config.py`, `pibot.env`, startup checks and service modules
+- **Likely causes:** stale env-file values, mixed env override values, invalid paths
+- **Files/modules:** `pibot_config.py`, optional env file configured by `PIBOT_CONFIG_FILE`, startup checks and service modules
 - **Threads/processes:** startup-check thread, all dependent workers
 - **Interfaces:** all dependent
 - **Verification:** run startup checks + inspect resolved values + targeted command checks
@@ -731,8 +746,8 @@ For each subsystem: PC commands, Pi commands, expected output, failure output, i
 
 ### 14.13 Configuration
 
-- **PC command:** `cat "/home/jorg/pyderman/pibot.env"`
-- **Pi command:** `cat "<PIBOT_PI_PROJECT_PATH>/pibot.env"`
+- **PC command:** `test -f "/home/jorg/pyderman/pibot.env" && cat "/home/jorg/pyderman/pibot.env" || echo "No local pibot.env file; using environment variables or alternate PIBOT_CONFIG_FILE."`
+- **Pi command:** `test -f "<PIBOT_PI_PROJECT_PATH>/pibot.env" && cat "<PIBOT_PI_PROJECT_PATH>/pibot.env" || echo "No Pi-side pibot.env file at default label."`
 - **Expected:** consistent host/port/model settings across environments
 - **Failure:** mismatched addresses/paths
 - **Interpretation:** sender-target mismatch or wrong remote execution paths

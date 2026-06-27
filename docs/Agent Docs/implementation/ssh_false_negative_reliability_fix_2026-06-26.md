@@ -1,5 +1,9 @@
 # SSH False-Negative Reliability Fix (2026-06-26)
 
+> Legacy artifact note: This record remains historically accurate for the 2026-06-26 reliability change.
+> Current authoritative documentation locations are under `"docs/Agent Docs/"` and the current
+> architecture/troubleshooting guides in `"docs/"`.
+
 ## Actions Taken
 
 1. Updated `pc/services/pi_streamer_manager.py` start path to launch streamers via a short remote Python spawner using:
@@ -30,7 +34,7 @@ The RCA proved false negatives were caused by SSH command timeout after remote p
 
 - `pc/services/pi_streamer_manager.py`
 - `tests/test_pi_streamer_manager.py`
-- `docs/implementation/ssh_false_negative_reliability_fix_2026-06-26.md`
+- `docs/Agent Docs/implementation/ssh_false_negative_reliability_fix_2026-06-26.md`
 
 ## Before/After Command Shape
 

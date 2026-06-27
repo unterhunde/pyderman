@@ -51,6 +51,8 @@ class OllamaService(threading.Thread):
             self.on_output_reset()
             self.on_output_append(f"Prompt: {prompt}\n\n")
             try:
+                # url_getter reads a lock-protected plain string cache owned by the
+                # GUI thread, avoiding direct Tk variable access in this worker.
                 server_url = self.url_getter()
                 self.logger.info(
                     "LLM request started | phrase=%s model=%s url=%s",

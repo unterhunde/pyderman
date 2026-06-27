@@ -4,13 +4,17 @@
 
 - **Title:** System Architecture and Interface Control Document (SAICD)
 - **Purpose:** Define the current PiBot runtime architecture, interfaces, module responsibilities, and integration behavior.
-- **Last Updated:** 2026-06-26
-- **Source Prompt:** User request: "update all files in /docs/ to be compliant with the attached file"
+- **Last Updated:** 2026-06-27
+- **Source Prompt:** Documentation Steward synchronization after successful Phase A revalidation.
 - **Source Documents Used:** `"docs/Agent Docs/implementation/"`, `"docs/Agent Docs/diagnostics/"`, `"docs/Agent Docs/validation/"`, `"docs/Agent Docs/root cause analysis/"`, `"docs/Agent Docs/checkpoints/"`
 - **Source Implementation Analyzed:** `pc/`, `pi/`, `tests/`, `pibot_config.py`
 - **Related Documents:** `docs/System_Diagnostic_and_Troubleshooting_Guide.md`, `"docs/Agent Docs/implementation/"`, `"docs/Agent Docs/diagnostics/"`, `"docs/Agent Docs/validation/"`, `"docs/Agent Docs/root cause analysis/"`, `"docs/Agent Docs/checkpoints/"`
+- **Latest Implementation Evidence:** `"docs/Agent Docs/implementation/audio_001_sim_ui_001_phase_a_calibration_wizard_simulation_label_fix_2026-06-27.md"`
+- **Latest Validation Evidence:** `"docs/Agent Docs/validation/audio_001_phase_a_calibration_wizard_revalidation_sim_ui_001_2026-06-27.md"`
+- **Latest Checkpoint Evidence:** `"docs/Agent Docs/checkpoints/checkpoint_audio_001_phase_a_validation_2026-06-27.md"`
 - **Assumptions:** Current operational documentation is sourced from active records under `docs/Agent Docs/`; historical references to legacy JSON locations (for example `docs/old-json/`) are non-authoritative and legacy only.
 - **Revision History:**
+  - 2026-06-27: Synchronized with latest Phase A validation state; updated repository layout and workflow alignment notes.
   - 2026-06-26: Added Prompt Header compliance metadata block.
   - 2026-06-26: Updated documentation path references to current `docs/Agent Docs/` structure and marked legacy paths as retired.
 
@@ -31,6 +35,14 @@ This document describes the repository as it exists now. Where implementation di
 - `docs/Agent Docs/old-diagnostics/` is retained only for historical reference and must not be used as the current diagnostics source (Legacy label; no corresponding directory is present in this repository snapshot).
 - New agents should prefer current files under `docs/Agent Docs/`.
 
+## Workflow Alignment (SAICD <-> Troubleshooting)
+
+- **Implementation workflow:** authoritative implementation records are under `"docs/Agent Docs/implementation/"`; the latest implementation record is the active handoff source for what changed.
+- **Diagnostic workflow:** investigative evidence and runtime diagnostics are under `"docs/Agent Docs/diagnostics/"`; unresolved runtime symptoms route here first.
+- **Validation workflow:** independent pass/fail evidence is under `"docs/Agent Docs/validation/"`; checkpoint claims must cite the latest validation report.
+- **Root-cause workflow:** mechanism analyses are under `"docs/Agent Docs/root cause analysis/"`; use RCA only when cause is unproven.
+- **Checkpoint workflow:** phase summaries and transition recommendations are under `"docs/Agent Docs/checkpoints/"`; `project_state.json` points to the latest checkpoint.
+
 ## 1. Executive Summary
 
 PiBot is a two-host voice and vision system:
@@ -43,10 +55,12 @@ The current architecture is:
 1. The **Pi** streams microphone PCM over UDP port **5001** and video JPEG chunks plus heartbeat packets over UDP port **5000**.
 2. The **PC** binds those UDP ports, reassembles video frames, optionally runs YOLO inference, buffers audio, segments speech with Whisper, and forwards final transcripts to Ollama.
 3. The **PC GUI** is the primary control plane for connect/disconnect, listening, inference, streamer start/stop over SSH, and live status reporting.
-4. Configuration is loaded from `pibot.env` or `PIBOT_CONFIG_FILE`, with environment variables overriding file values.
+4. Configuration is loaded from process environment plus optional env-file inputs (`PIBOT_CONFIG_FILE`, default label `pibot.env`), with environment variables overriding file values.
 
 Major capabilities currently implemented:
 
+- AUDIO-001 Phase A calibration wizard is complete and validated in simulation mode
+- SIM-UI-001 is closed with persistent simulation labeling across wizard states
 - live video preview with optional YOLO overlay
 - UDP microphone ingestion and Whisper speech recognition
 - Ollama streaming response display
@@ -62,15 +76,14 @@ Major capabilities currently implemented:
 /home/jorg/pyderman
   - .editorconfig
   - pibot_config.py
-  - pibot.env
   - requirements.txt
   - yolo26m.pt
   - archives/
   - pc/
   - pi/
   - tests/
+  - .venv/
   - .vscode/
-  - .run/
   - docs/
 ```
 
@@ -82,8 +95,9 @@ Major capabilities currently implemented:
 | `pi/` | Current Raspberry Pi-side streamer and diagnostic code. |
 | `archives/` | Historical compatibility shims and older modules not used by the current runtime. |
 | `tests/` | Unit and end-to-end tests for Whisper and Ollama flow. |
+| `.venv/` | Project-local Python virtual environment used in validation. |
 | `.vscode/` | VS Code workspace settings and SFTP deployment config. |
-| `.run/` | Runtime PID/log location used by Pi streamer startup scripts and SSH status checks. |
+| `.run/` | Legacy/local-runtime label in older docs. Active runtime PID/log ownership is remote under `"<PIBOT_PI_PROJECT_PATH>/.run/"`; this directory is not committed in this repository snapshot. |
 | `docs/` | Active documentation under `docs/Agent Docs/`; legacy references such as `docs/old-json/` and `docs/Agent Docs/old-diagnostics/` are historical labels and not current active sources. |
 
 ### Shallow tree of significant source files
@@ -94,8 +108,12 @@ pc/
   operator_console_app.py
   runtime_config.py
   logging_utils.py
+  gui/
+    calibration_wizard_panel.py
   services/
     audio_receiver.py
+    calibration_metrics_provider.py
+    calibration_session_controller.py
     ollama_service.py
     pi_streamer_manager.py
     prompt_submission.py
@@ -207,7 +225,7 @@ Speech processing is fully on the PC:
 
 1. process environment
 2. optional `PIBOT_CONFIG_FILE`
-3. `pibot.env`
+3. default env-file label `pibot.env` (optional, may be absent in repository snapshots)
 4. hardcoded defaults
 
 ### Logging layer
@@ -359,7 +377,7 @@ Speech processing is fully on the PC:
 ### PC startup
 
 1. `pc/client.py` adds project root to `sys.path`.
-2. `load_settings()` reads env vars / `pibot.env`.
+2. `load_settings()` reads environment variables and optional env-file values (`PIBOT_CONFIG_FILE`, default label `pibot.env`).
 3. Tk root is created.
 4. `OperatorConsoleApp` initializes:
    - runtime config
@@ -525,6 +543,8 @@ stateDiagram-v2
 ## 11. Configuration
 
 ### Environment-backed settings
+
+Default label `pibot.env` is configuration metadata, not a guaranteed committed file in every repository snapshot.
 
 | Key | Default | Purpose | Runtime use |
 |---|---|---|---|

@@ -2,28 +2,30 @@
 "schema_version": "1.0",
 "project": {
 "name": "PiBot",
-"status": "stable_checkpoint",
-"current_phase": "runtime_hardening_and_pi_signal_quality",
-"last_updated": "2026-06-26"
+"status": "phase_a_validated",
+"current_phase": "audio_001_phase_a_complete_validated",
+"last_updated": "2026-06-27"
 },
 "checkpoint": {
-"id": "runtime_stabilization_2026-06-26",
+"id": "audio_001_phase_a_validation_2026-06-27",
 "commit_ready": true,
-"report": "docs/Agent Docs/checkpoints/checkpoint_runtime_stabilization_2026-06-26.md"
+"report": "docs/Agent Docs/checkpoints/checkpoint_audio_001_phase_a_validation_2026-06-27.md"
 },
 "latest_artifacts": {
 "architecture": "docs/System_Architecture_and_Interface_Control_Document.md",
 "troubleshooting": "docs/System_Diagnostic_and_Troubleshooting_Guide.md",
-"validation": "docs/Agent Docs/validation/e2e_runtime_validation_ssh_false_negative_2026-06-26_22-27-00.md",
-"implementation": "docs/Agent Docs/implementation/ssh_false_negative_reliability_fix_2026-06-26.md",
+"validation": "docs/Agent Docs/validation/audio_001_phase_a_calibration_wizard_revalidation_sim_ui_001_2026-06-27.md",
+"implementation": "docs/Agent Docs/implementation/audio_001_sim_ui_001_phase_a_calibration_wizard_simulation_label_fix_2026-06-27.md",
 "root_cause_analysis": "docs/Agent Docs/root cause analysis/ssh_false_negative_rca_2026-06-26.md"
 },
 "validated_capabilities": [
+"AUDIO-001 Phase A is complete and independently validated",
+"SIM-UI-001 is closed with persistent simulation labeling across the calibration workflow",
 "PC GUI launches and connects",
 "Mic streamer starts and stops through GUI controls",
 "Video streamer starts and stops through GUI controls",
 "UDP audio reaches the PC",
-"UDP video and heartbeatSIM-UI-001 reach the PC",
+"UDP video and heartbeat reach the PC",
 "Whisper produces partial and final transcripts",
 "Final transcripts are submitted to Ollama",
 "Assistant output streams into the GUI",
@@ -37,7 +39,15 @@
 "severity": "low",
 "status": "open",
 "title": "Microphone and AGC calibration",
-"recommended_owner": "Pi Audio Diagnostic Agent"
+"progress": "Calibration Wizard Phase A fix is complete and validated; Phase B telemetry integration is pending.",
+"recommended_owner": "Runtime Implementation Agent"
+},
+{
+"id": "SIM-UI-001",
+"severity": "low",
+"status": "closed",
+"title": "Phase A calibration simulation labeling visibility",
+"recommended_owner": "Documentation Steward and Project Hygiene Agent"
 },
 {
 "id": "AUDIO-002",
@@ -69,9 +79,9 @@
 }
 ],
 "next_step": {
-"recommended_agent": "Documentation Steward and Project Hygiene Agent",
-"objective": "Complete documentation synchronization and commit the stable runtime checkpoint.",
-"after_checkpoint": "Begin Pi microphone, AGC, and hardware calibration."
+"recommended_agent": "Runtime Implementation Agent",
+"objective": "Implement AUDIO-001 Phase B telemetry integration while preserving Phase A simulation safeguards.",
+"after_checkpoint": "Run independent validation for Phase B telemetry behavior and regression safety."
 },
 "framework": {
 "documentation_standard": "docs/AI Engineering Framework/Documentation_Standards.md",
@@ -91,6 +101,7 @@
 "notes": [
 "The current implementation is authoritative when documentation conflicts with code.",
 "Detailed evidence belongs in engineering reports, not in this file.",
-"Historical artifacts must not be treated as current sources of truth."
+"Historical artifacts must not be treated as current sources of truth.",
+"Latest validation evidence: docs/Agent Docs/validation/audio_001_phase_a_calibration_wizard_revalidation_sim_ui_001_2026-06-27.md"
 ]
 }

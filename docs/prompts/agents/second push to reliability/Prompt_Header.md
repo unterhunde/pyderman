@@ -4,10 +4,13 @@
 **Purpose:** Define mandatory documentation maintenance requirements for all implementation and documentation changes.  
 **Last Updated:** 2026-06-26  
 **Source Prompt:** User request to create `Prompt_Header.md` and `prompt_header.json` in `/docs/`  
-**Source Documents Used:** `docs/json/system_manifest.json`  
+**Source Documents Used:** `docs/AI Engineering Framework/project_state.json`, `docs/System_Architecture_and_Interface_Control_Document.md`, `docs/System_Diagnostic_and_Troubleshooting_Guide.md`  
 **Source Implementation Analyzed:** Repository documentation tree under `docs/`  
-**Related Documents:** `docs/json/system_manifest.json`  
+**Related Documents:** `docs/AI Engineering Framework/project_state.json`, `docs/System_Architecture_and_Interface_Control_Document.md`, `docs/System_Diagnostic_and_Troubleshooting_Guide.md`  
 **Assumptions:** `prompts/` may not exist in this workspace snapshot.  
+
+**Legacy reference note:** Earlier prompt-header versions referenced `docs/json/system_manifest.json`.
+That path is not present in this snapshot and is retained as a historical label only.
 
 Documentation is part of the implementation. Any modification to behavior, interfaces, architecture, configuration, protocols, threading, networking, or runtime characteristics is incomplete until all affected documentation has been updated and cross-referenced.
 
@@ -18,7 +21,7 @@ This repository is under active development. Treat all documentation as living e
 Before making code changes or generating new documentation:
 
 1. Read and understand all existing documentation in the `docs/` directory and all relevant files in the `prompts/` directory.
-2. Treat `system_manifest.json` as the authoritative index of the current implementation unless the code indicates otherwise.
+2. Treat `docs/AI Engineering Framework/project_state.json` as the authoritative project-state index, and treat current implementation/runtime evidence as authoritative when documentation differs.
 3. Validate documentation against the current implementation rather than assuming it is correct.
 4. If implementation differs from documentation, update the documentation to match the implementation.
 5. Preserve existing document structure and expand it instead of replacing it whenever practical.

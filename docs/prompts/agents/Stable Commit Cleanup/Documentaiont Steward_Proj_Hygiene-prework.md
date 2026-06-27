@@ -33,7 +33,7 @@ Reference:
 
 * "docs/System_Architecture_and_Interface_Control_Document.md"
 * "docs/System_Diagnostic_and_Troubleshooting_Guide.md"
-* Latest validation report
+* Latest validation reportac
 * Latest implementation record
 * Latest Root Cause Analysis
 * Latest checkpoint document
@@ -102,13 +102,7 @@ The checkpoint should summarize:
 * recommended next development phase
 * evidence used
 
-Known remaining work (document only):
-
-* Microphone calibration and AGC tuning
-* Pi audio hardware refinement
-* UDP packet-loss tolerance improvements
-* Transcript quality tuning
-* Future feature development after runtime stabilization
+Known remaining work (document only)
 
 Required Output
 
