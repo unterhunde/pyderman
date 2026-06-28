@@ -38,10 +38,11 @@ def main() -> None:
         host=settings.pc_host,
         port=settings.udp_audio_port,
         sample_rate=settings.pi_sample_rate,
+        calibration_bind_host=settings.pi_calibration_bind_host,
+        calibration_port=settings.calibration_diagnostics_port,
     )
     streamer.run()
 
 
 if __name__ == "__main__":
     main()
-

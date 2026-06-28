@@ -48,10 +48,20 @@ class _FakeScheduler:
             item.callback()
         self._now_ms = target
 
-    def run_all(self) -> None:
-        while self._queue:
+    def run_all(self, max_steps: int = 2000) -> None:
+        """Drain the queue up to max_steps iterations.
+
+        The production live-poll callback reschedules itself indefinitely.
+        max_steps prevents an infinite loop when run_all() is called while
+        the controller is in an actively-polling state (e.g. PREPARE_*).
+        All bounded callback chains (stage captures) terminate naturally
+        well before 2000 steps.
+        """
+        steps = 0
+        while self._queue and steps < max_steps:
             next_due = self._queue[0][0] - self._now_ms
             self.advance(max(next_due, 0))
+            steps += 1
 
 
 class TestCalibrationSessionController(unittest.TestCase):

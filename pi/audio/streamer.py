@@ -9,16 +9,27 @@ import numpy as np
 import pyaudio
 
 from pi.audio import config
+from pi.audio.calibration_telemetry import CalibrationTelemetryServer
 from pi.audio.device_selection import select_input_device
 from pi.audio.protocol import AUDIO_HEADER
-from pi.audio.signal_processing import apply_agc_and_gate, select_mono_channel
+from pi.audio.signal_processing import apply_agc_and_gate_with_metrics, select_mono_channel
 
 
 class UDPMicStreamer:
-    def __init__(self, host: str, port: int, sample_rate: int) -> None:
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        sample_rate: int,
+        *,
+        calibration_bind_host: str,
+        calibration_port: int,
+    ) -> None:
         self.host = host
         self.port = port
         self.sample_rate = sample_rate
+        self.calibration_bind_host = calibration_bind_host
+        self.calibration_port = calibration_port
         self.shutdown_requested = False
         
         # Register signal handlers for graceful shutdown
@@ -34,8 +45,14 @@ class UDPMicStreamer:
     def run(self) -> None:
         audio_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         destination = (self.host, self.port)
+        telemetry = CalibrationTelemetryServer(
+            bind_host=self.calibration_bind_host,
+            port=self.calibration_port,
+        )
+        telemetry.start()
 
         pa = pyaudio.PyAudio()
+        stream = None
         selected_device_index, selected_device_info = select_input_device(pa, config.INPUT_DEVICE_INDEX)
 
         max_input_channels = int(selected_device_info.get("maxInputChannels", 0))
@@ -80,6 +97,7 @@ class UDPMicStreamer:
                 stereo_pcm = stream.read(config.CHUNK_FRAMES, exception_on_overflow=False)
                 samples = np.frombuffer(stereo_pcm, dtype=np.int32)
                 if samples.size != config.CHUNK_FRAMES * input_channels:
+                    telemetry.record_chunk_drop(1)
                     continue
 
                 mono, active_channel = select_mono_channel(
@@ -88,7 +106,7 @@ class UDPMicStreamer:
                     channel_mode=config.CHANNEL_MODE,
                     active_channel=active_channel,
                 )
-                pcm_data, current_gain = apply_agc_and_gate(
+                pcm_data, current_gain, processing_metrics = apply_agc_and_gate_with_metrics(
                     mono=mono,
                     current_gain=current_gain,
                     noise_gate_rms=config.NOISE_GATE_RMS,
@@ -100,14 +118,25 @@ class UDPMicStreamer:
                 )
                 header = AUDIO_HEADER.pack(sequence_number, config.CHUNK_FRAMES)
                 audio_sock.sendto(header + pcm_data, destination)
+                telemetry.record_chunk(
+                    sequence_number=sequence_number,
+                    raw_rms=processing_metrics.raw_rms,
+                    processed_rms=processing_metrics.processed_rms,
+                    peak=processing_metrics.peak,
+                    clipping_ratio=processing_metrics.clipping_ratio,
+                    gate_active=processing_metrics.gate_active,
+                    agc_gain=processing_metrics.agc_gain,
+                    active_channel=active_channel,
+                )
                 sequence_number = (sequence_number + 1) & 0xFFFFFFFF
         except KeyboardInterrupt:
             print("Audio streamer interrupted by user")
         except Exception as exc:
             print(f"Audio streamer error: {exc}")
         finally:
-            stream.stop_stream()
-            stream.close()
+            if stream is not None:
+                stream.stop_stream()
+                stream.close()
             pa.terminate()
+            telemetry.stop()
             audio_sock.close()
-

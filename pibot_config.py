@@ -22,6 +22,8 @@ class AppSettings:
     pi_user: str
     pi_venv_path: str
     pi_project_path: str
+    calibration_diagnostics_port: int
+    pi_calibration_bind_host: str
 
 
 def _parse_env_file(path: Path) -> dict[str, str]:
@@ -73,4 +75,6 @@ def load_settings() -> AppSettings:
         pi_user=get_str("PIBOT_PI_USER", "jorg"),
         pi_venv_path=get_str("PIBOT_PI_VENV_PATH", "/home/jorg/venv"),
         pi_project_path=get_str("PIBOT_PI_PROJECT_PATH", "/home/jorg/pibot"),
+        calibration_diagnostics_port=get_int("PIBOT_CALIBRATION_DIAGNOSTICS_PORT", 5011),
+        pi_calibration_bind_host=get_str("PIBOT_PI_CALIBRATION_BIND_HOST", "0.0.0.0"),
     )

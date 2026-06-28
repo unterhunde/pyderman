@@ -5,15 +5,16 @@
 - **Title:** System Architecture and Interface Control Document (SAICD)
 - **Purpose:** Define the current PiBot runtime architecture, interfaces, module responsibilities, and integration behavior.
 - **Last Updated:** 2026-06-27
-- **Source Prompt:** Documentation Steward synchronization after successful Phase A revalidation.
+- **Source Prompt:** Documentation Steward synchronization after successful AUDIO-001 Phase B live revalidation.
 - **Source Documents Used:** `"docs/Agent Docs/implementation/"`, `"docs/Agent Docs/diagnostics/"`, `"docs/Agent Docs/validation/"`, `"docs/Agent Docs/root cause analysis/"`, `"docs/Agent Docs/checkpoints/"`
 - **Source Implementation Analyzed:** `pc/`, `pi/`, `tests/`, `pibot_config.py`
 - **Related Documents:** `docs/System_Diagnostic_and_Troubleshooting_Guide.md`, `"docs/Agent Docs/implementation/"`, `"docs/Agent Docs/diagnostics/"`, `"docs/Agent Docs/validation/"`, `"docs/Agent Docs/root cause analysis/"`, `"docs/Agent Docs/checkpoints/"`
-- **Latest Implementation Evidence:** `"docs/Agent Docs/implementation/audio_001_sim_ui_001_phase_a_calibration_wizard_simulation_label_fix_2026-06-27.md"`
-- **Latest Validation Evidence:** `"docs/Agent Docs/validation/audio_001_phase_a_calibration_wizard_revalidation_sim_ui_001_2026-06-27.md"`
-- **Latest Checkpoint Evidence:** `"docs/Agent Docs/checkpoints/checkpoint_audio_001_phase_a_validation_2026-06-27.md"`
+- **Latest Implementation Evidence:** `"docs/Agent Docs/implementation/deploy_001_audio_001_phase_b_pi_deployment_2026-06-27.md"`
+- **Latest Validation Evidence:** `"docs/Agent Docs/validation/audio_001_phase_b_calibration_wizard_live_revalidation_2026-06-27.md"`
+- **Latest Checkpoint Evidence:** `"docs/Agent Docs/checkpoints/checkpoint_audio_001_phase_b_validation_2026-06-27.md"`
 - **Assumptions:** Current operational documentation is sourced from active records under `docs/Agent Docs/`; historical references to legacy JSON locations (for example `docs/old-json/`) are non-authoritative and legacy only.
 - **Revision History:**
+  - 2026-06-27: Updated for AUDIO-001 Phase B completion (deployed live telemetry channel, session/stage correlation, and validated lifecycle behavior).
   - 2026-06-27: Synchronized with latest Phase A validation state; updated repository layout and workflow alignment notes.
   - 2026-06-26: Added Prompt Header compliance metadata block.
   - 2026-06-26: Updated documentation path references to current `docs/Agent Docs/` structure and marked legacy paths as retired.
@@ -59,7 +60,7 @@ The current architecture is:
 
 Major capabilities currently implemented:
 
-- AUDIO-001 Phase A calibration wizard is complete and validated in simulation mode
+- AUDIO-001 Calibration Wizard Phases A and B are complete, with Phase B deployed and independently validated in live mode
 - SIM-UI-001 is closed with persistent simulation labeling across wizard states
 - live video preview with optional YOLO overlay
 - UDP microphone ingestion and Whisper speech recognition
@@ -74,6 +75,7 @@ Major capabilities currently implemented:
 
 ```text
 /home/jorg/pyderman
+  - calibration_protocol.py
   - .editorconfig
   - pibot_config.py
   - requirements.txt
@@ -111,6 +113,8 @@ pc/
   gui/
     calibration_wizard_panel.py
   services/
+    calibration_telemetry_aggregation.py
+    calibration_telemetry_client.py
     audio_receiver.py
     calibration_metrics_provider.py
     calibration_session_controller.py
@@ -131,6 +135,7 @@ pi/
   video_udp_streamer.py
   audio_diagnostics.py
   audio/
+    calibration_telemetry.py
     config.py
     device_selection.py
     protocol.py
@@ -181,6 +186,7 @@ Each script loads settings, writes a PID file under `.run/`, constructs its stre
 - **Video**: UDP datagrams with `CHUNK_HEADER = struct.Struct("!IHH")` followed by JPEG chunks.
 - **Heartbeat**: UDP datagrams with `HEARTBEAT_PACKET = struct.Struct("!BQ")`.
 - **Remote control**: SSH commands from PC to Pi for streamer start/stop/status.
+- **Calibration telemetry**: TCP request/response + streaming telemetry channel between PC and Pi on port `5011` (`PIBOT_CALIBRATION_DIAGNOSTICS_PORT`).
 - **LLM**: HTTP POST streaming to Ollama `/api/generate`.
 
 ### UI layer
@@ -219,6 +225,17 @@ Speech processing is fully on the PC:
 4. final transcripts are pushed to `ollama_queue`
 5. `OllamaService` streams the model response into the GUI
 
+### Calibration telemetry and wizard control layer (AUDIO-001 Phase B)
+
+- `pi/audio/calibration_telemetry.py` provides `CalibrationTelemetryServer`, started/stopped with `UDPMicStreamer`, and bound to `PIBOT_CALIBRATION_DIAGNOSTICS_PORT` (5011 by default).
+- `pc/services/calibration_telemetry_client.py` provides the TCP client transport used by `LiveTelemetryCalibrationMetricsProvider`.
+- `pc/services/calibration_telemetry_aggregation.py` validates `live_metrics` and `close_stage` summaries before stage success is accepted.
+- Session and stage ownership are explicit: summaries must match expected `session_id` and `stage_id`, and stale-session requests are rejected.
+- Stage summaries are sequence-aligned (`audio_sequence_start`/`audio_sequence_end`) and validated per stage before the wizard advances.
+- Provider modes are explicit and non-silent: simulation mode uses `SimulatedCalibrationMetricsProvider`; live mode uses `LiveTelemetryCalibrationMetricsProvider`.
+- Cancellation, disconnect, timeout, and stale-session paths fail safe by rejecting stale requests and requiring a new valid session before capture can continue.
+- Phase B preserves the existing UDP audio packet format and transport path (`AUDIO_HEADER !IH` on UDP 5001).
+
 ### Configuration layer
 
 `pibot_config.load_settings()` merges:
@@ -248,6 +265,7 @@ Speech processing is fully on the PC:
 | File | Purpose | Public API | Dependencies | Called by | Calls into | Config / runtime responsibilities |
 |---|---|---|---|---|---|---|
 | `pibot_config.py` | Central configuration loader. | `AppSettings`, `load_settings()` | `os`, `Path` | PC and Pi entrypoints, archived shims | env vars, env-file parser | Loads UDP ports, hosts, rates, model path, Ollama URL/model, Pi SSH settings. |
+| `calibration_protocol.py` | Shared calibration telemetry/control protocol schema and codecs. | request/response and telemetry encode/decode helpers | `json`, typing | PC telemetry client/provider and Pi telemetry server | message serialization/parsing | Enforces schema versioning and field validation for Phase B calibration traffic. |
 | `pc/client.py` | PC startup root. | `create_application()`, `main()` | `tkinter`, `pibot_config`, `OperatorConsoleApp` | User launch | GUI app creation | App bootstrap and Tk main loop. |
 | `pc/runtime_config.py` | Thread-safe runtime toggles. | `RuntimeConfig` | `threading` | GUI controls, Whisper worker | internal lock | Controls audio stream enabled, listening enabled, threshold, silence timeout. |
 | `pc/logging_utils.py` | GUI log bridge. | `GuiLogHandler.emit()` | `logging`, `queue` | `OperatorConsoleApp` | queue | Redirects formatted log messages to GUI queue. |
@@ -257,6 +275,8 @@ Speech processing is fully on the PC:
 | `pc/services/ollama_service.py` | Streamed LLM worker. | `OllamaService.run()` | `requests`, `json`, queues | `OperatorConsoleApp.connect()` | Ollama HTTP API, GUI callbacks | Sends prompt to `/api/generate`, streams token responses into GUI. |
 | `pc/services/pi_streamer_manager.py` | SSH control of Pi processes. | `query_status()`, `run_action()` | `subprocess`, `threading`, `ssh` | Streamer tab buttons/status refresh | remote shell commands | Starts/stops streamer scripts using PID files under `.run/`. |
 | `pc/services/startup_checks.py` | Startup readiness validation. | `run_all()`, `check_model()`, `check_udp_binds()`, `check_ollama()`, `check_stream_target_alignment()`, `ollama_base_url()` | `socket`, `requests`, `urlparse` | GUI startup + refresh | filesystem, network, Ollama | Checks model file, port availability, target IP alignment, Ollama reachability. |
+| `pc/services/calibration_telemetry_client.py` | TCP calibration telemetry client. | `connect()`, `disconnect()`, `request()`, telemetry queue readers | `socket`, `threading`, protocol helpers | `LiveTelemetryCalibrationMetricsProvider` | Pi `CalibrationTelemetryServer` | Maintains live diagnostics connection and request/response correlation for Phase B wizard flow. |
+| `pc/services/calibration_telemetry_aggregation.py` | Validation and mapping of telemetry payloads. | `validate_live_metrics_payload()`, `validate_stage_summary()` | dataclasses, protocol helpers | `LiveTelemetryCalibrationMetricsProvider`, controller tests | validation helpers | Rejects stale/malformed/mismatched session and stage summaries before wizard progression. |
 | `pc/services/thread_monitor.py` | Worker watchdog. | `ThreadMonitor` methods | `threading`, `time`, `logging` | not wired | restart callbacks | Monitors threads and restarts them if dead, but current GUI does not instantiate it. |
 | `pc/services/prompt_submission.py` | Typed prompt envelope. | `PromptSubmission` | dataclass | Whisper and Ollama services | none | Carries `phrase_id` and transcript text. |
 | `pc/video/frame_buffer.py` | Frame chunk assembly. | `FrameBuffer` methods | dataclass | `UDPVideoReceiver` | none | Collects chunk payloads and assembles JPEG bytes. |
@@ -267,6 +287,7 @@ Speech processing is fully on the PC:
 | `pi/video_udp_streamer.py` | Pi video streamer entrypoint. | `main()` | `pibot_config`, `UDPVideoStreamer` | user launch, SSH manager | streamer, PID file | Writes `.run/video_streamer.pid`, runs video streamer. |
 | `pi/audio/config.py` | Audio streamer constants. | constants only | `pyaudio` | Pi audio streamer | none | Input/output channel count, AGC, gate, chunk size. |
 | `pi/audio/device_selection.py` | Input device selection. | `select_input_device()` | `pyaudio` | Pi audio streamer, diagnostics | PyAudio device enumeration | Picks preferred/heuristic/default capture device. |
+| `pi/audio/calibration_telemetry.py` | Pi calibration telemetry/control server. | `CalibrationTelemetryServer` | `socket`, `threading`, protocol helpers | `pi/audio/streamer.py` | chunk metrics aggregation and TCP channel | Owns session lifecycle, stage summaries, stale-session rejection, and live telemetry emission on port 5011. |
 | `pi/audio/protocol.py` | Audio packet layout. | constants only | `struct` | Pi mic streamer, PC audio receiver | none | Defines `AUDIO_HEADER`. |
 | `pi/audio/signal_processing.py` | Channel selection and AGC/gate. | `select_mono_channel()`, `apply_agc_and_gate()` | `numpy` | Pi mic streamer, diagnostics | none | Converts 32-bit input to int16 PCM and applies gain control. |
 | `pi/audio/streamer.py` | UDP mic streamer. | `UDPMicStreamer.run()` | `pyaudio`, `numpy`, sockets | `pi/mic_udp_streamer.py` | device selection, signal processing, audio protocol | Reads capture stream, selects mono, processes audio, sends packets. |
@@ -558,6 +579,8 @@ Default label `pibot.env` is configuration metadata, not a guaranteed committed 
 | `PIBOT_YOLO_MODEL_PATH` | `yolo26m.pt` | YOLO weights file. | Startup model check, inference engine. |
 | `PIBOT_OLLAMA_URL` | `http://localhost:11434/api/generate` | Ollama generate endpoint. | Ollama worker and startup check. |
 | `PIBOT_OLLAMA_MODEL` | `llama3:instruct` | Ollama model name. | Ollama worker. |
+| `PIBOT_CALIBRATION_DIAGNOSTICS_PORT` | `5011` | TCP calibration telemetry/control port. | Pi telemetry server + PC live telemetry client. |
+| `PIBOT_PI_CALIBRATION_BIND_HOST` | `0.0.0.0` | Pi bind host for calibration telemetry server. | Pi telemetry server socket bind. |
 | `PIBOT_PI_HOST` | `192.168.0.38` | Pi SSH host. | Streamer manager SSH target. |
 | `PIBOT_PI_USER` | `jorg` | Pi SSH user. | Streamer manager SSH target. |
 | `PIBOT_PI_VENV_PATH` | `/home/jorg/venv` | Remote Python executable root. | SSH streamer launch command. |
@@ -604,6 +627,7 @@ Default label `pibot.env` is configuration metadata, not a guaranteed committed 
 |---|---|---|---|---|
 | UDP 5001 | UDP | PC binds; Pi sends | Pi -> PC | Audio stream to Whisper. |
 | UDP 5000 | UDP | PC binds; Pi sends | Pi -> PC | Video chunks and heartbeat. |
+| TCP 5011 | TCP | Pi binds; PC connects | PC <-> Pi | Calibration telemetry/control channel (`CalibrationTelemetryServer`). |
 | SSH 22 | SSH | Pi SSH daemon | PC -> Pi | Remote streamer management. |
 | HTTP 11434 | HTTP | Ollama service | PC -> Ollama | LLM generate API. |
 
@@ -617,8 +641,10 @@ Default label `pibot.env` is configuration metadata, not a guaranteed committed 
 
 - `AudioReceiverService` owns the PC UDP audio socket.
 - `UDPVideoReceiver` owns the PC UDP video socket.
+- `CalibrationTelemetryClient` owns the PC TCP calibration telemetry socket when live mode is active.
 - `UDPMicStreamer` owns the Pi UDP audio socket.
 - `UDPVideoStreamer` owns the Pi UDP video socket.
+- `CalibrationTelemetryServer` owns the Pi TCP calibration telemetry listener/client sockets.
 
 ### Reconnect / heartbeat behavior
 
@@ -652,7 +678,7 @@ The Pi entrypoints:
 
 ### Streaming behavior
 
-- mic streamer reads `pyaudio` input, applies `select_mono_channel()` and `apply_agc_and_gate()`, then sends UDP audio packets
+- mic streamer reads `pyaudio` input, applies `select_mono_channel()` and `apply_agc_and_gate_with_metrics()`, sends UDP audio packets, and records chunk metrics to `CalibrationTelemetryServer` when active
 - video streamer captures frames, JPEG-encodes them, chunks them to fit `MAX_UDP_PAYLOAD = 1200`, and sends heartbeat packets independently
 
 ## 14. Error Handling

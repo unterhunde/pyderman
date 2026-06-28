@@ -645,3 +645,10 @@ A prompt is sufficiently defined when the agent can determine:
 * where the report must be saved
 
 If any of these are materially ambiguous, revise the prompt before execution.
+## 26. Resource-Bounded Execution
+
+Agents must prefer narrow, sequential test execution over broad repeated test runs.
+
+Commands that may block must use timeouts. Polling loops, queues, telemetry histories, and retries must be bounded. Agents must terminate confirmed orphaned processes after failed or interrupted runs.
+
+Full-suite, full-GUI, model-loading, and live end-to-end tests should run only after targeted tests pass and only once per relevant implementation state.

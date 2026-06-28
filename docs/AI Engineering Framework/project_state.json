@@ -2,24 +2,27 @@
 "schema_version": "1.0",
 "project": {
 "name": "PiBot",
-"status": "phase_a_validated",
-"current_phase": "audio_001_phase_a_complete_validated",
+"status": "phase_b_validated",
+"current_phase": "audio_001_phase_b_complete_deployed_validated",
 "last_updated": "2026-06-27"
 },
 "checkpoint": {
-"id": "audio_001_phase_a_validation_2026-06-27",
+"id": "audio_001_phase_b_validation_2026-06-27",
 "commit_ready": true,
-"report": "docs/Agent Docs/checkpoints/checkpoint_audio_001_phase_a_validation_2026-06-27.md"
+"report": "docs/Agent Docs/checkpoints/checkpoint_audio_001_phase_b_validation_2026-06-27.md"
 },
 "latest_artifacts": {
 "architecture": "docs/System_Architecture_and_Interface_Control_Document.md",
 "troubleshooting": "docs/System_Diagnostic_and_Troubleshooting_Guide.md",
-"validation": "docs/Agent Docs/validation/audio_001_phase_a_calibration_wizard_revalidation_sim_ui_001_2026-06-27.md",
-"implementation": "docs/Agent Docs/implementation/audio_001_sim_ui_001_phase_a_calibration_wizard_simulation_label_fix_2026-06-27.md",
+"validation": "docs/Agent Docs/validation/audio_001_phase_b_calibration_wizard_live_revalidation_2026-06-27.md",
+"implementation": "docs/Agent Docs/implementation/deploy_001_audio_001_phase_b_pi_deployment_2026-06-27.md",
 "root_cause_analysis": "docs/Agent Docs/root cause analysis/ssh_false_negative_rca_2026-06-26.md"
 },
 "validated_capabilities": [
 "AUDIO-001 Phase A is complete and independently validated",
+"AUDIO-001 Phase B calibration telemetry integration is complete, deployed, and independently validated",
+"Calibration wizard live telemetry runs over the dedicated TCP diagnostics channel on Pi port 5011",
+"Calibration stage session and sequence correlation is validated end-to-end in live mode",
 "SIM-UI-001 is closed with persistent simulation labeling across the calibration workflow",
 "PC GUI launches and connects",
 "Mic streamer starts and stops through GUI controls",
@@ -39,8 +42,15 @@
 "severity": "low",
 "status": "open",
 "title": "Microphone and AGC calibration",
-"progress": "Calibration Wizard Phase A fix is complete and validated; Phase B telemetry integration is pending.",
+"progress": "Calibration Wizard Phases A and B are complete, deployed, and independently validated. Phase C controlled calibration trials and temporary parameter application remain pending.",
 "recommended_owner": "Runtime Implementation Agent"
+},
+{
+"id": "RUNTIME-001",
+"severity": "low",
+"status": "open",
+"title": "Mic streamer PID file can be lost after a concurrent start attempt",
+"recommended_owner": "Runtime Reliability Agent"
 },
 {
 "id": "SIM-UI-001",
@@ -80,8 +90,8 @@
 ],
 "next_step": {
 "recommended_agent": "Runtime Implementation Agent",
-"objective": "Implement AUDIO-001 Phase B telemetry integration while preserving Phase A simulation safeguards.",
-"after_checkpoint": "Run independent validation for Phase B telemetry behavior and regression safety."
+"objective": "Implement AUDIO-001 Phase C controlled calibration trials and temporary parameter application using validated Phase B telemetry pathways.",
+"after_checkpoint": "Run independent validation for Phase C trial-control behavior, temporary parameter application safety, and Phase A/B regression coverage."
 },
 "framework": {
 "documentation_standard": "docs/AI Engineering Framework/Documentation_Standards.md",
@@ -102,6 +112,6 @@
 "The current implementation is authoritative when documentation conflicts with code.",
 "Detailed evidence belongs in engineering reports, not in this file.",
 "Historical artifacts must not be treated as current sources of truth.",
-"Latest validation evidence: docs/Agent Docs/validation/audio_001_phase_a_calibration_wizard_revalidation_sim_ui_001_2026-06-27.md"
+"Latest validation evidence: docs/Agent Docs/validation/audio_001_phase_b_calibration_wizard_live_revalidation_2026-06-27.md"
 ]
 }

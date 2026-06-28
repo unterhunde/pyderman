@@ -35,7 +35,21 @@ class TestSimulatedCalibrationMetricsProvider(unittest.TestCase):
         provider = SimulatedCalibrationMetricsProvider()
         first = provider.capture(MeasurementStage.LOUD, attempt=2, capture_seconds=4)
         second = provider.capture(MeasurementStage.LOUD, attempt=2, capture_seconds=4)
-        self.assertEqual(first, second)
+        # Timestamps use real wall-clock time and legitimately differ between calls;
+        # verify determinism of all audio metric and control fields.
+        self.assertEqual(first.raw_rms, second.raw_rms)
+        self.assertEqual(first.processed_rms, second.processed_rms)
+        self.assertEqual(first.peak, second.peak)
+        self.assertEqual(first.clipping, second.clipping)
+        self.assertEqual(first.gate_ratio, second.gate_ratio)
+        self.assertEqual(first.agc_gain, second.agc_gain)
+        self.assertEqual(first.capture_success, second.capture_success)
+        self.assertEqual(first.chunks_captured, second.chunks_captured)
+        self.assertEqual(first.chunks_missing, second.chunks_missing)
+        self.assertEqual(first.chunks_dropped, second.chunks_dropped)
+        self.assertEqual(first.stage_id, second.stage_id)
+        self.assertEqual(first.stage_type, second.stage_type)
+        self.assertEqual(first.telemetry_complete, second.telemetry_complete)
 
 
 if __name__ == "__main__":

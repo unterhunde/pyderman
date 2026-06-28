@@ -191,8 +191,13 @@ class CalibrationWizardPanel(ttk.Frame):
         )
         self.stage_name_value.configure(text=view_state.stage_name)
         instruction = view_state.instruction
+        mode_label = ""
         if view_state.simulation_mode:
-            instruction = f"{instruction} [Simulated]"
+            instruction = f"{instruction} [SIMULATION MODE]"
+            mode_label = " — SIMULATION MODE"
+        elif view_state.provider_mode == "live_telemetry":
+            instruction = f"{instruction} [LIVE TELEMETRY MODE]"
+            mode_label = " — LIVE TELEMETRY MODE"
         self.instruction_value.configure(text=instruction)
         cue_style = "Warn.TLabel"
         if view_state.cue == "start":
@@ -201,15 +206,21 @@ class CalibrationWizardPanel(ttk.Frame):
             cue_style = "Danger.TLabel"
         self.cue_value.configure(text=view_state.cue.upper(), style=cue_style)
         self.countdown_value.configure(text=f"{view_state.countdown_seconds}s")
-        self.status_message_value.configure(text=view_state.status_message)
+        status_msg = view_state.status_message
+        if view_state.telemetry_connection_state and not view_state.simulation_mode:
+            status_msg = f"{status_msg} [Telemetry: {view_state.telemetry_connection_state}]"
+        self.status_message_value.configure(text=status_msg)
         self.progress_bar.configure(maximum=max(view_state.progress_total, 1), value=view_state.progress_current)
         self.progress_label.configure(text=f"Progress: {view_state.progress_current}/{view_state.progress_total}")
         if view_state.simulation_mode:
             self.diagnostics_mode_value.configure(
-                text=f"Diagnostics source: SIMULATED ({view_state.provider_source_label})",
+                text=f"SIMULATION MODE — Diagnostics source: {view_state.provider_source_label}",
             )
         else:
-            self.diagnostics_mode_value.configure(text=f"Diagnostics source: {view_state.provider_source_label}")
+            telemetry_info = f" ({view_state.telemetry_connection_state})" if view_state.telemetry_connection_state else ""
+            self.diagnostics_mode_value.configure(
+                text=f"LIVE TELEMETRY MODE — Diagnostics source: {view_state.provider_source_label}{telemetry_info}",
+            )
 
         self.start_btn.state(["!disabled"] if view_state.state.value in {"IDLE", "COMPLETE", "FAILED", "CANCELLED"} else ["disabled"])
         self.start_stage_btn.state(["!disabled"] if view_state.can_start and view_state.state.value not in {"IDLE"} else ["disabled"])

@@ -5,15 +5,16 @@
 - **Title:** PiBot System Diagnostic & Troubleshooting Guide
 - **Purpose:** Provide operational diagnostics, troubleshooting workflows, and runtime failure-mode guidance for PiBot.
 - **Last Updated:** 2026-06-27
-- **Source Prompt:** Documentation Steward synchronization after successful Phase A revalidation.
+- **Source Prompt:** Documentation Steward synchronization after successful AUDIO-001 Phase B live revalidation.
 - **Source Documents Used:** `"docs/Agent Docs/implementation/"`, `"docs/Agent Docs/diagnostics/"`, `"docs/Agent Docs/validation/"`, `"docs/Agent Docs/root cause analysis/"`, `"docs/Agent Docs/checkpoints/"`
 - **Source Implementation Analyzed:** `pc/`, `pi/`, `tests/`, `pibot_config.py`
 - **Related Documents:** `docs/System_Architecture_and_Interface_Control_Document.md`, `"docs/Agent Docs/implementation/"`, `"docs/Agent Docs/diagnostics/"`, `"docs/Agent Docs/validation/"`, `"docs/Agent Docs/root cause analysis/"`, `"docs/Agent Docs/checkpoints/"`, and historical diagram path labels (for example `docs/old - diagnostics/*.mmd`, not present in this snapshot)
-- **Latest Implementation Evidence:** `"docs/Agent Docs/implementation/audio_001_sim_ui_001_phase_a_calibration_wizard_simulation_label_fix_2026-06-27.md"`
-- **Latest Validation Evidence:** `"docs/Agent Docs/validation/audio_001_phase_a_calibration_wizard_revalidation_sim_ui_001_2026-06-27.md"`
-- **Latest Checkpoint Evidence:** `"docs/Agent Docs/checkpoints/checkpoint_audio_001_phase_a_validation_2026-06-27.md"`
+- **Latest Implementation Evidence:** `"docs/Agent Docs/implementation/deploy_001_audio_001_phase_b_pi_deployment_2026-06-27.md"`
+- **Latest Validation Evidence:** `"docs/Agent Docs/validation/audio_001_phase_b_calibration_wizard_live_revalidation_2026-06-27.md"`
+- **Latest Checkpoint Evidence:** `"docs/Agent Docs/checkpoints/checkpoint_audio_001_phase_b_validation_2026-06-27.md"`
 - **Assumptions:** Active troubleshooting artifacts are maintained under `docs/Agent Docs/`; historical JSON and diagnostics path labels are legacy reference only and are not authoritative active sources.
 - **Revision History:**
+  - 2026-06-27: Added Phase B live telemetry diagnostics (port 5011 checks, live/simulation distinction, session/stage failure triage, and stale PID process guidance).
   - 2026-06-27: Synchronized workflow routing, latest validation/implementation references, and Phase A status context.
   - 2026-06-26: Added Prompt Header compliance metadata block.
   - 2026-06-26: Updated active documentation references to `docs/Agent Docs/` and retired legacy paths.
@@ -265,6 +266,7 @@ Manifest references: `interfaces`
 | Audio UDP | `UDPMicStreamer` | `AudioReceiverService` | UDP datagram: `AUDIO_HEADER(!IH)` + int16 PCM | no explicit ack | receiver socket timeout 0.5s loop | none | packet loss, bind failure, queue overflow | check PC audio packet timestamps + 5001 traffic |
 | Video UDP | `UDPVideoStreamer` | `UDPVideoReceiver` | UDP datagram chunks: `CHUNK_HEADER(!IHH)` + JPEG bytes | no explicit ack | 15ms GUI poll; worker get timeout 0.2s | none | out-of-order/lost chunks, frame drops | packet/frame counters, reassembly warnings |
 | Heartbeat UDP | `UDPVideoStreamer` | `UDPVideoReceiver` / status bar | UDP `HEARTBEAT_PACKET(!BQ)` every 500ms | implicit via status freshness | network considered offline after ~2s stale | none | stale network state despite partial traffic | monitor `last_heartbeat_time`-driven state |
+| Calibration telemetry/control | `CalibrationTelemetryServer` | `CalibrationTelemetryClient` / live metrics provider | TCP JSON protocol (`calibration_protocol.py`) on port 5011 | explicit request ACKs + stage/session validation | request-level timeout in client; server receive timeout loop | no auto-reconnect; reconnect by new client/session | disconnect, stale-session rejection, timeout, malformed payloads | verify port 5011, connect/ping, session open/close, stage summary validation |
 | Ollama HTTP | `OllamaService` | Ollama daemon | POST JSON `{model,prompt,stream:true}` | HTTP status + streamed `done` token | request timeout 120s | none in worker | refused, timeout, bad model | startup check + curl to `/api/tags` |
 | SSH control | `PiStreamerManager` | Pi sshd | shell command over SSH | command return code/output | connect timeout 8s; cmd timeout 12/20s | no automatic retry | auth/network failure, remote script path issues | run same SSH command manually |
 | Whisper in-process API | `WhisperService` | `whisper` model | float32 waveform to `model.transcribe()` | return dict with `text` | queue get timeout 0.2s | n/a | model load/transcription exceptions | look for “Whisper transcription error” |
@@ -282,6 +284,7 @@ Manifest references: `network_ports`
 |---|---|---|---|---|---|---|
 | 5000 | `UDPVideoStreamer` -> `UDPVideoReceiver` | UDP | video chunks + heartbeat | continuous bursty chunks + heartbeat every 500ms | PC: packet/frame counters, status online, FPS > 0 | verify Pi target host, firewall, socket bind conflicts |
 | 5001 | `UDPMicStreamer` -> `AudioReceiverService` | UDP | microphone PCM stream | continuous PCM packets during mic capture | PC audio meter updates; microphone activity logs | verify mic streamer alive, audio device, bind conflicts |
+| 5011 | `CalibrationTelemetryServer` -> `CalibrationTelemetryClient` | TCP | calibration telemetry + control requests | persistent client connection with request/ACK and periodic `live_metrics` | Pi: `ss -tlnp \| grep 5011`; PC: client `connection_state=connected`; stage/session ACKs | verify streamer started, validate Pi bind host/port config, inspect disconnect/session mismatch errors |
 | 22 | `PiStreamerManager` | SSH | remote control start/stop/status | short command sessions per action/status refresh | manual `ssh user@pi 'echo ok'` | fix SSH keys/password/auth, host reachability |
 | 11434 | Ollama server | HTTP | LLM generation and startup tag checks | GET `/api/tags`, POST `/api/generate` stream | `curl http://localhost:11434/api/tags` | ensure Ollama daemon/model availability |
 
@@ -307,6 +310,8 @@ Note: `pibot.env` is a default label used by configuration loading; it may be ab
 | `PIBOT_YOLO_MODEL_PATH` | YOLO model file path | `yolo26m.pt` | existing model path | `InferenceEngine`, startup model check | inference/model load errors |
 | `PIBOT_OLLAMA_URL` | Ollama generate endpoint | `http://localhost:11434/api/generate` | reachable HTTP URL | `OllamaService`, `StartupChecks` | startup check unreachable, LLM errors |
 | `PIBOT_OLLAMA_MODEL` | model name passed to Ollama | `llama3:instruct` | installed Ollama model name | `OllamaService` | stream error or empty responses |
+| `PIBOT_CALIBRATION_DIAGNOSTICS_PORT` | calibration telemetry TCP port | `5011` | free TCP port 1..65535 | `CalibrationTelemetryServer`, `CalibrationTelemetryClient` | live calibration connect failures or wrong-target connection |
+| `PIBOT_PI_CALIBRATION_BIND_HOST` | Pi calibration telemetry bind host | `0.0.0.0` | valid Pi bind interface | `CalibrationTelemetryServer` socket bind | telemetry channel not reachable from PC |
 | `PIBOT_PI_HOST` | Pi SSH host | `192.168.0.38` | reachable host/IP | `PiStreamerManager` | streamer control `transport-failed` |
 | `PIBOT_PI_USER` | Pi SSH user | `jorg` | valid remote account | `PiStreamerManager` | permission/auth failures |
 | `PIBOT_PI_VENV_PATH` | remote venv root | `/home/jorg/venv` | path containing `bin/python` | `PiStreamerManager` start action | remote start fails (`python` not found) |
@@ -558,6 +563,30 @@ Same stop semantics as video using mic pid/log files.
 3. Corresponding `.run/*.log` shows active loop output
 4. PC receives matching packet stream (audio or video)
 
+### 11.7 Phase B calibration telemetry verification checklist
+
+1. Start mic streamer through normal control path (`PiStreamerManager.run_action("mic", "start")` or equivalent GUI action).
+2. On Pi, verify telemetry listener is active:
+   - `ss -tlnp | grep 5011`
+   - expected: `LISTEN ... 0.0.0.0:5011 ... python3`
+3. On PC, verify telemetry client connects:
+   - `connection_state` becomes `connected`
+   - `ping` request returns `{"status":"ok"}`
+4. Open calibration session and verify returned `session_id`; stale/concurrent session attempts should fail with session-owned/session-mismatch errors.
+5. Open and close a stage; require stage summary `complete=True`, matching `session_id`/`stage_id`, and ordered sequence fields.
+6. Distinguish provider mode:
+   - live: `provider_mode=live_telemetry`, `is_simulated=False`, no simulation warning
+   - simulation: `provider_mode=simulation`, `is_simulated=True`, simulation warning visible
+7. Cancel/disconnect behavior:
+   - after cancel: stale requests must fail (`SESSION_MISMATCH`)
+   - after disconnect/Pi stop: client becomes `disconnected`, requests fail fast, and new session required after reconnect
+8. Confirm UDP audio regression safety:
+   - while telemetry is active, UDP packets still arrive at PC port 5001
+9. Final cleanup check:
+   - no stale `mic_udp_streamer.py` process
+   - no stale `.run/mic_streamer.pid` orphan
+   - port 5011 idle after streamer stop
+
 RCA diagram: `docs/Agent Docs/root cause analysis/streamer_sequence_diagram_2026-06-26.mmd`
 
 ---
@@ -770,6 +799,51 @@ For each subsystem: PC commands, Pi commands, expected output, failure output, i
 - **Failure:** stale pid points to dead process
 - **Interpretation:** unclean shutdown or manual process kill
 - **Recovery:** remove stale pid file and restart streamer
+
+### 14.16 Calibration telemetry port check (Pi)
+
+- **PC command:** `ssh <pi_user>@<pi_host> "ss -tlnp | grep 5011 || true"`
+- **Pi command:** `ss -tlnp | grep 5011 || true`
+- **Expected:** listener exists only while mic streamer is running.
+- **Failure:** no listener during active calibration/live mode, or lingering listener after stop.
+- **Interpretation:** telemetry server not started with streamer, bind failure, or unclean shutdown.
+- **Recovery:** restart mic streamer, verify `PIBOT_CALIBRATION_DIAGNOSTICS_PORT` and `PIBOT_PI_CALIBRATION_BIND_HOST`, clear stale process/PID.
+
+### 14.17 Calibration telemetry client connectivity
+
+- **PC command:** run live telemetry client check (connect + ping + open_session).
+- **Pi command:** `ss -tnp | grep 5011 || true`
+- **Expected:** PC reports `connection_state=connected`; Pi shows established TCP client.
+- **Failure:** connect timeout/refused, immediate disconnect, ping timeout.
+- **Interpretation:** wrong host/port, server not running, network path issue, or stale process state.
+- **Recovery:** verify Pi streamer is running, validate host/port settings, reconnect with a new client/session.
+
+### 14.18 Calibration session/stage failure triage
+
+- **PC command:** inspect session and stage ACK/error payloads from telemetry client.
+- **Pi command:** inspect `.run/mic_streamer.log` and active PID/process state.
+- **Expected:** `open_session`/`open_stage` ACKs succeed; `close_stage` summary has matching IDs and `complete=True`.
+- **Failure:** `SESSION_MISMATCH`, timeout waiting for ACK, malformed payload errors, stale-session rejection after reconnect.
+- **Interpretation:** stale session ownership, disconnect during stage, timeout, or invalid telemetry summary.
+- **Recovery:** close/cancel stale session, reconnect client, start a new session, then re-run stage capture.
+
+### 14.19 Live-vs-simulation mode confirmation
+
+- **PC command:** inspect calibration provider metadata in UI/logs (`provider_mode`, `is_simulated`, simulation warning text).
+- **Pi command:** N/A.
+- **Expected:** live mode shows `live_telemetry` and no simulation warning; simulation mode shows `simulation` and explicit warning.
+- **Failure:** mode labels inconsistent with provider metadata.
+- **Interpretation:** provider wiring/state mismatch.
+- **Recovery:** restart wizard session with intended provider mode and verify metadata refresh.
+
+### 14.20 UDP audio regression check during calibration
+
+- **PC command:** bind/read UDP port 5001 and count packets while calibration telemetry is active.
+- **Pi command:** keep `pi/mic_udp_streamer.py` running through calibration session.
+- **Expected:** UDP audio packets continue arriving before, during, and after calibration/cancel.
+- **Failure:** packet flow stops when telemetry session starts.
+- **Interpretation:** unintended coupling between telemetry and audio send path.
+- **Recovery:** stop/start streamer, verify telemetry and UDP paths independently, escalate if reproducible.
 
 ---
 
