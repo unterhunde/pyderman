@@ -14,6 +14,7 @@
 - **Latest Checkpoint Evidence:** `"docs/Agent Docs/checkpoints/checkpoint_audio_001_phase_b_validation_2026-06-27.md"`
 - **Assumptions:** Current operational documentation is sourced from active records under `docs/Agent Docs/`; historical references to legacy JSON locations (for example `docs/old-json/`) are non-authoritative and legacy only.
 - **Revision History:**
+  - 2026-06-27: Verification pass against implementation for backlog triage; refined technical-debt notes for packet classification and SSH command construction specifics.
   - 2026-06-27: Updated for AUDIO-001 Phase B completion (deployed live telemetry channel, session/stage correlation, and validated lifecycle behavior).
   - 2026-06-27: Synchronized with latest Phase A validation state; updated repository layout and workflow alignment notes.
   - 2026-06-26: Added Prompt Header compliance metadata block.
@@ -958,12 +959,12 @@ graph TD
 
 - `pc/services/thread_monitor.py` is implemented but not wired into the GUI.
 - `OperatorConsoleApp._build_bottom_panel()` duplicates the logs tab and is unused.
-- `pc/video/receiver_widget.py` treats the first byte as a heartbeat discriminator, even though chunk packets do not carry an explicit type field.
-- `PiStreamerManager` builds SSH commands with string interpolation and assumes path values contain no shell-breaking characters.
+- `pc/video/receiver_widget.py` classifies heartbeat packets from `packet[0]`, while chunk packets are parsed as `CHUNK_HEADER(!IHH)` without an explicit packet-type field.
+- `PiStreamerManager` still interpolates unquoted path-derived values in `query_status()` and the stop branch of `run_action()`, assuming shell-safe configuration strings.
 - `pc/video/receiver_widget.py` binds the UDP socket during widget construction, so startup can fail immediately if the port is occupied.
 - `WhisperService` loads the Whisper base model on first use and can block the worker for several seconds.
 - `audio_receiver` resamples with a fixed factor of 3 rather than deriving the ratio from configured rates.
-- `pc/video/receiver_widget.py` and archived modules expose the typo alias `UDPVideoReciever`.
+- `pc/video/receiver_widget.py` and archived modules expose the typo alias `UDPVideoReciever` for compatibility.
 - Archived compatibility files and historical audit docs are still present in the repository.
 
 ## 20. Interface Verification

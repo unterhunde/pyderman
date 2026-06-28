@@ -14,6 +14,7 @@
 - **Latest Checkpoint Evidence:** `"docs/Agent Docs/checkpoints/checkpoint_audio_001_phase_b_validation_2026-06-27.md"`
 - **Assumptions:** Active troubleshooting artifacts are maintained under `docs/Agent Docs/`; historical JSON and diagnostics path labels are legacy reference only and are not authoritative active sources.
 - **Revision History:**
+  - 2026-06-27: Added targeted diagnostics for video packet classification ambiguity, SSH path-shell safety checks, Whisper first-use load latency, sample-rate mismatch checks, and thread-monitor integration verification.
   - 2026-06-27: Added Phase B live telemetry diagnostics (port 5011 checks, live/simulation distinction, session/stage failure triage, and stale PID process guidance).
   - 2026-06-27: Synchronized workflow routing, latest validation/implementation references, and Phase A status context.
   - 2026-06-26: Added Prompt Header compliance metadata block.
@@ -844,6 +845,51 @@ For each subsystem: PC commands, Pi commands, expected output, failure output, i
 - **Failure:** packet flow stops when telemetry session starts.
 - **Interpretation:** unintended coupling between telemetry and audio send path.
 - **Recovery:** stop/start streamer, verify telemetry and UDP paths independently, escalate if reproducible.
+
+### 14.21 Video packet classification ambiguity check
+
+- **PC command:** monitor video logs for packet/frame continuity and unexpected heartbeat-only periods while video streamer remains active.
+- **Pi command:** keep `pi/video_udp_streamer.py` running and verify frame count progression in Pi logs.
+- **Expected:** packet/frame counters continue to rise together and preview remains active.
+- **Failure:** heartbeat appears active while frame decode/reassembly stalls unexpectedly.
+- **Interpretation:** packet parsing ambiguity may be affecting chunk classification for specific frame-id ranges.
+- **Recovery:** capture packet traces/log timestamps and escalate to runtime implementation for protocol discriminator hardening.
+
+### 14.22 SSH path-shell safety check (streamer control)
+
+- **PC command:** verify `PIBOT_PI_PROJECT_PATH` and `PIBOT_PI_VENV_PATH` contain no shell-breaking characters before using GUI streamer controls.
+- **Pi command:** `test -d "<PIBOT_PI_PROJECT_PATH>" && test -x "<PIBOT_PI_VENV_PATH>/bin/python" && echo ok`
+- **Expected:** paths resolve cleanly and streamer actions return `started`/`stopped`/`running` as expected.
+- **Failure:** remote-command failures with otherwise healthy SSH transport.
+- **Interpretation:** shell parsing may be disrupted by configured path content in remote command construction.
+- **Recovery:** correct path configuration to shell-safe values and retry streamer action/status operations.
+
+### 14.23 Whisper first-use model-load delay check
+
+- **PC command:** connect, speak a short phrase, and observe timestamps between `Loading Whisper model: base` and first partial/final transcript.
+- **Pi command:** N/A.
+- **Expected:** one-time initialization delay followed by normal transcript cadence.
+- **Failure:** prolonged first transcript latency with normal behavior after model load completes.
+- **Interpretation:** expected first-use model initialization overhead, not necessarily a functional failure.
+- **Recovery:** document observed delay and route optimization requests to performance analysis.
+
+### 14.24 Audio sample-rate mismatch check
+
+- **PC command:** compare configured `PIBOT_WHISPER_SAMPLE_RATE` with expected post-resample rate from `AudioReceiverService` behavior.
+- **Pi command:** confirm `PIBOT_PI_SAMPLE_RATE` in active Pi configuration.
+- **Expected:** operational path remains 48 kHz input to 16 kHz Whisper-target assumptions.
+- **Failure:** non-default configured rates with degraded timing/segmentation quality.
+- **Interpretation:** fixed `down=3` resampling path may not match configured capture/transcription rates.
+- **Recovery:** align configuration with 48 kHz -> 16 kHz assumptions or route a runtime implementation task to derive ratios from configuration.
+
+### 14.25 Thread monitor integration status check
+
+- **PC command:** `rg -n "ThreadMonitor|thread_monitor" pc tests`
+- **Pi command:** N/A.
+- **Expected:** no active runtime wiring in current app path.
+- **Failure:** unexpected integration references without documented architecture update.
+- **Interpretation:** implementation/docs drift around thread-health ownership.
+- **Recovery:** route disposition to System Architect (integrate intentionally, retain dormant, or retire).
 
 ---
 

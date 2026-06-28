@@ -86,6 +86,70 @@
 "status": "open",
 "title": "Transcript fidelity and phrase segmentation tuning",
 "recommended_owner": "Pi Audio Diagnostic Agent"
+},
+{
+"id": "ARCH-001",
+"severity": "low",
+"status": "open",
+"title": "Thread monitor implemented but not integrated into active runtime",
+"progress": "`pc/services/thread_monitor.py` defines `ThreadMonitor`, but no runtime imports or call paths instantiate it.",
+"recommended_owner": "System Architect"
+},
+{
+"id": "HYGIENE-001",
+"severity": "low",
+"status": "open",
+"title": "Unused duplicate bottom-panel builder in OperatorConsoleApp",
+"progress": "`OperatorConsoleApp._build_bottom_panel()` is not called and duplicates `self.log_box` construction already performed in `_build_logs_tab()`.",
+"recommended_owner": "Project Hygiene Agent"
+},
+{
+"id": "VIDEO-003",
+"severity": "medium",
+"status": "open",
+"title": "Ambiguous video heartbeat and chunk packet classification",
+"progress": "`UDPVideoReceiver._handle_packet()` treats `packet[0]` as a packet type while chunk payloads are `CHUNK_HEADER(!IHH)` without a packet-type field.",
+"recommended_owner": "Runtime Implementation Agent"
+},
+{
+"id": "RUNTIME-002",
+"severity": "medium",
+"status": "open",
+"title": "Pi streamer SSH command construction assumes shell-safe paths",
+"progress": "`PiStreamerManager` interpolates unquoted path strings into remote shell in `query_status()` and stop branch of `run_action()`.",
+"recommended_owner": "Runtime Implementation Agent"
+},
+{
+"id": "VIDEO-004",
+"severity": "medium",
+"status": "open",
+"title": "Video receiver binds UDP socket during widget construction",
+"progress": "`UDPVideoReceiver.__init__()` binds `self._socket` before `start()`, and `OperatorConsoleApp.connect()` constructs the widget inside the connection sequence.",
+"recommended_owner": "Runtime Implementation Agent"
+},
+{
+"id": "SPEECH-002",
+"severity": "low",
+"status": "open",
+"title": "First-use Whisper model loading delays worker readiness",
+"progress": "`WhisperService._get_model()` performs `whisper.load_model(\"base\")` on first transcription call inside the worker thread.",
+"recommended_owner": "Performance Analysis Agent"
+},
+{
+"id": "AUDIO-003",
+"severity": "medium",
+"status": "open",
+"title": "Audio resampling ratio is hard-coded instead of configuration-derived",
+"progress": "`AudioReceiverService.run()` uses `resample_poly(..., up=1, down=3)` while runtime settings expose configurable `pi_sample_rate` and `whisper_sample_rate`.",
+"recommended_owner": "Runtime Implementation Agent"
+},
+{
+"id": "HYGIENE-002",
+"severity": "low",
+"status": "open",
+"title": "Misspelled UDPVideoReciever compatibility alias remains exposed",
+"progress": "`pc/video/receiver_widget.py` and archived compatibility shims export `UDPVideoReciever` for backward compatibility.",
+"recommended_owner": "Project Hygiene Agent"
 }
 ],
 "next_step": {
